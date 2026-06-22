@@ -43,7 +43,7 @@ classDiagram
     }
 
     class DeepSleepController {
-        -shared_ptr~hal::deepsleep::IPlatform~ _platform
+      -shared_ptr~IPlatformDeepSleep~ _platform
         +Create(parent) DeepSleepController
         +Activate(timeout, nwStandbyMode) uint32_t
         +Deactivate() uint32_t
@@ -51,7 +51,7 @@ classDiagram
     }
 
     class PowerController {
-        -unique_ptr~hal::power::IPlatform~ _platform
+      -unique_ptr~IPlatformPower~ _platform
         +Create(deepSleep) PowerController
         +SetPowerState(keyCode, state, reason) uint32_t
         +GetPowerState(current, prev) uint32_t
@@ -59,8 +59,8 @@ classDiagram
     }
 
     class PowerManagerFactory {
-        +CreateDeepSleepPlatform() shared_ptr~hal::deepsleep::IPlatform~
-        +CreatePowerPlatform() unique_ptr~hal::power::IPlatform~
+      +CreateDeepSleepPlatform() shared_ptr~IPlatformDeepSleep~
+      +CreatePowerPlatform() unique_ptr~IPlatformPower~
         -SelectedBackend() Backend
     }
 
@@ -70,7 +70,7 @@ classDiagram
         AIDL
     }
 
-    class hal::deepsleep::IPlatform {
+    class IPlatformDeepSleep["hal::deepsleep::IPlatform"] {
         <<interface>>
         +SetDeepSleep(timeout, isGPIOWakeup, networkStandby) uint32_t
         +DeepSleepWakeup() uint32_t
@@ -78,7 +78,7 @@ classDiagram
         +GetLastWakeupKeyCode(keyCode) uint32_t
     }
 
-    class hal::power::IPlatform {
+    class IPlatformPower["hal::power::IPlatform"] {
         <<interface>>
         +SetPowerState(state) uint32_t
         +GetPowerState(state) uint32_t
@@ -99,13 +99,13 @@ classDiagram
 
     PowerManagerFactory ..> Backend
 
-    DeepSleepController --> hal::deepsleep::IPlatform
-    PowerController --> hal::power::IPlatform
+    DeepSleepController --> IPlatformDeepSleep
+    PowerController --> IPlatformPower
 
-    DeepSleepImpl ..|> hal::deepsleep::IPlatform
-    PowerImpl ..|> hal::power::IPlatform
-    DeepSleepAidlImpl ..|> hal::deepsleep::IPlatform
-    PowerAidlImpl ..|> hal::power::IPlatform
+    DeepSleepImpl ..|> IPlatformDeepSleep
+    PowerImpl ..|> IPlatformPower
+    DeepSleepAidlImpl ..|> IPlatformDeepSleep
+    PowerAidlImpl ..|> IPlatformPower
 
     PowerManagerFactory --> DeepSleepImpl : RDKV path
     PowerManagerFactory --> PowerImpl : RDKV path
