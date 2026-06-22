@@ -21,6 +21,7 @@ set(PLUGIN_IMPLEMENTATION ${MODULE_NAME}Implementation)
 
 set(PLUGIN_POWERMANAGER_AUTOSTART "false" CACHE STRING "Automatically start PowerManager plugin")
 set(PLUGIN_POWERMANAGER_STARTUPORDER "30" CACHE STRING "To configure startup order of PowerManager plugin")
+option(POWERMANAGER_ENABLE_AIDL_HAL "Enable AIDL HAL backend for PowerManager" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
@@ -86,6 +87,33 @@ set_target_properties(${PLUGIN_IMPLEMENTATION} PROPERTIES
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES)
 
+if(POWERMANAGER_ENABLE_AIDL_HAL)
+    set_target_properties(${PLUGIN_IMPLEMENTATION} PROPERTIES
+            CXX_STANDARD 17
+            CXX_STANDARD_REQUIRED YES)
+    target_compile_definitions(${PLUGIN_IMPLEMENTATION} PRIVATE POWERMANAGER_ENABLE_AIDL_HAL)
+
+    find_package(Binder QUIET)
+    if (Binder_FOUND)
+        target_include_directories(${PLUGIN_IMPLEMENTATION} PRIVATE ${Binder_INCLUDE_DIRS})
+        target_link_libraries(${PLUGIN_IMPLEMENTATION} PRIVATE ${Binder_LIBRARIES})
+    else()
+        target_link_libraries(${PLUGIN_IMPLEMENTATION} PRIVATE libbinder.so libutils.so)
+    endif()
+
+    find_path(AIDL_DEEPSLEEP_INCLUDE_DIR
+        NAMES com/rdk/hal/deepsleep/IDeepSleep.h
+        HINTS /usr/include /usr/local/include)
+    if (AIDL_DEEPSLEEP_INCLUDE_DIR)
+        target_include_directories(${PLUGIN_IMPLEMENTATION} PRIVATE ${AIDL_DEEPSLEEP_INCLUDE_DIR})
+        file(GLOB AIDL_DEEPSLEEP_STUBS
+            "${AIDL_DEEPSLEEP_INCLUDE_DIR}/com/rdk/hal/deepsleep/*.cpp")
+        target_sources(${PLUGIN_IMPLEMENTATION} PRIVATE ${AIDL_DEEPSLEEP_STUBS})
+    else()
+        message(WARNING "Could not find AIDL DeepSleep headers - AIDL backend may fail to build")
+    endif()
+endif()
+
 if(RDK_SERVICES_L1_TEST OR RDK_SERVICE_L2_TEST)
 
     target_compile_definitions(${PLUGIN_IMPLEMENTATION}
@@ -127,6 +155,10 @@ endif()
 if(DEEPSLEEP_HAL_FOUND)
     target_include_directories(${PLUGIN_IMPLEMENTATION} PRIVATE ${DEEPSLEEP_HAL_INCLUDE_DIRS})
     target_link_libraries(${PLUGIN_IMPLEMENTATION} PRIVATE ${DEEPSLEEP_HAL_LIBRARIES})
+endif()
+
+if(POWER_HAL_FOUND AND DEEPSLEEP_HAL_FOUND)
+    target_compile_definitions(${PLUGIN_IMPLEMENTATION} PRIVATE POWERMANAGER_ENABLE_RDKV_HAL)
 endif()
 
 if (RFC_FOUND)
