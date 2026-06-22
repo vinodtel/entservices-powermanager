@@ -61,13 +61,6 @@ classDiagram
     class PowerManagerFactory {
       +CreateDeepSleepPlatform() shared_ptr~IPlatformDeepSleep~
       +CreatePowerPlatform() unique_ptr~IPlatformPower~
-        -SelectedBackend() Backend
-    }
-
-    class Backend {
-        <<enumeration>>
-        RDKV
-        AIDL
     }
 
     class IPlatformDeepSleep["hal::deepsleep::IPlatform"] {
@@ -97,8 +90,6 @@ classDiagram
     DeepSleepController --> PowerManagerFactory : Create()
     PowerController --> PowerManagerFactory : Create()
 
-    PowerManagerFactory ..> Backend
-
     DeepSleepController --> IPlatformDeepSleep
     PowerController --> IPlatformPower
 
@@ -115,15 +106,11 @@ classDiagram
 
 ## Backend Selection
 
-Backend is selected using this order:
+Backend is selected using the following logic:
 
-1. Runtime environment variable POWERMANAGER_HAL_BACKEND
-   - aidl -> request AIDL backend
-   - rdkv -> request RDKV backend
-2. Compile-time default (if configured)
-3. Safe fallback path
-
-If the requested backend is unavailable, the factory attempts fallback to another compiled backend. If no backend is available, a null platform is returned and APIs report unavailable.
+Checks the AIDL HAL's availability during runtime.
+   - If AIDL HAL available -> creates AIDL backend
+   - If AIDL HAL not available -> creates RDKV backend
 
 ## Runtime Flow Diagram
 
@@ -150,10 +137,10 @@ flowchart TD
     L --> O{AIDL available?}
 
     N -->|Yes| P[Use AIDL DeepSleep platform]
-    N -->|No| Q[Fallback to RDKV DeepSleep or Null platform]
+    N -->|No| Q[Fallback to RDKV DeepSleep]
 
     O -->|Yes| R[Use AIDL Power platform]
-    O -->|No| S[Fallback to RDKV Power or Null platform]
+    O -->|No| S[Fallback to RDKV Power]
 
     P --> T[Controller uses IPlatform API]
     Q --> T
@@ -164,27 +151,9 @@ flowchart TD
     U --> W[Power and wake source operations]
 ```
 
-## Build and Configuration
-
-- AIDL backend build switch:
-  - POWERMANAGER_ENABLE_AIDL_HAL
-- Runtime backend selector:
-  - POWERMANAGER_HAL_BACKEND
-
-Recommended defaults:
-
-- Keep RDKV as default backend in production until AIDL backend coverage is complete
-- Enable AIDL backend in integration environments for rollout validation
-
 ## Design Benefits
 
 - Single point of backend selection logic
 - Controller code remains stable and backend-agnostic
 - Reduced regression risk when adding new backends
 - Incremental migration path from RDKV HAL to AIDL HAL
-
-## Future Enhancements
-
-- Extend PowerAidlImpl with full platform API mapping for all power state and wake source paths
-- Add backend capability probing and telemetry for backend selection decisions
-- Add unit tests around factory fallback behavior and null-platform handling
