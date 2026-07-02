@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's LICENSE file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2026 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,189 +19,170 @@
 
 #pragma once
 
-#include "deepSleepMgr.h"
+#include <cstdint>
+#include <optional>
+#include <vector>
+
+#include <core/Portability.h>
+#include <interfaces/IPowerManager.h>
 
 #include "DeepSleep.h"
-#include "PowerUtils.h"
 #include "UtilsLogging.h"
-#include "secure_wrapper.h" // for v_secure_system
+
+#include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
+#include <utils/StrongPointer.h>
+
+#include <com/rdk/hal/deepsleep/IDeepSleep.h>
+#include <com/rdk/hal/deepsleep/KeyCode.h>
+#include <com/rdk/hal/deepsleep/WakeUpTrigger.h>
 
 class DeepSleepImpl : public hal::deepsleep::IPlatform {
     using WakeupReason = WPEFramework::Exchange::IPowerManager::WakeupReason;
-    using Utils = PowerUtils;
-
-    // delete copy constructor and assignment operator
-    DeepSleepImpl(const DeepSleepImpl&) = delete;
-    DeepSleepImpl& operator=(const DeepSleepImpl&) = delete;
 
 public:
     DeepSleepImpl()
+        : _available(false)
+        , _lastWakeupReason(WakeupReason::WAKEUP_REASON_UNKNOWN)
+        , _lastWakeupKeyCode(0)
     {
-        PLAT_DS_INIT();
+        try {
+            android::ProcessState::self()->startThreadPool();
+            android::sp<android::IBinder> binderSvc = android::defaultServiceManager()->getService(
+                android::String16(com::rdk::hal::deepsleep::IDeepSleep::serviceName().c_str()));
+
+            if (binderSvc == nullptr) {
+                LOGERR("Unable to get AIDL DeepSleep service");
+                return;
+            }
+
+            _deepsleep = android::interface_cast<com::rdk::hal::deepsleep::IDeepSleep>(binderSvc);
+            _available = (_deepsleep != nullptr);
+
+            if (_available) {
+                LOGINFO("AIDL DeepSleep service acquired");
+            } else {
+                LOGERR("Unable to cast DeepSleep service binder");
+            }
+        } catch (...) {
+            LOGERR("Exception caught while initializing AIDL DeepSleep service");
+            _available = false;
+        }
     }
 
-    virtual ~DeepSleepImpl()
+    bool IsAvailable() const
     {
-        PLAT_DS_TERM();
+        return _available;
     }
 
-    WakeupReason conv(DeepSleep_WakeupReason_t reason) const
+    uint32_t SetDeepSleep(uint32_t deepSleepTime, bool& isGPIOWakeup, bool networkStandby) override
     {
-        switch (reason) {
-        case DEEPSLEEP_WAKEUPREASON_IR:
+        if (!_available || _deepsleep == nullptr) {
+            return WPEFramework::Core::ERROR_UNAVAILABLE;
+        }
+
+        android::binder::Status st = _deepsleep->setWakeUpTimer(static_cast<int32_t>(deepSleepTime));
+        if (!st.isOk()) {
+            LOGERR("IDeepSleep::setWakeUpTimer failed");
+            return WPEFramework::Core::ERROR_GENERAL;
+        }
+
+        std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> triggers;
+        triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::TIMER);
+
+        if (networkStandby) {
+            triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::LAN);
+            triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::WLAN);
+        }
+
+        std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> wokeUpByTriggers;
+        std::optional<com::rdk::hal::deepsleep::KeyCode> keyCode;
+        bool success = false;
+
+        st = _deepsleep->enterDeepSleep(triggers, &wokeUpByTriggers, &keyCode, &success);
+        if (!st.isOk()) {
+            LOGERR("IDeepSleep::enterDeepSleep failed");
+            return WPEFramework::Core::ERROR_GENERAL;
+        }
+
+        if (!success) {
+            LOGERR("IDeepSleep::enterDeepSleep reported failure");
+            return WPEFramework::Core::ERROR_ABORTED;
+        }
+
+        _lastWakeupReason = ConvertWakeupReason(wokeUpByTriggers);
+        _lastWakeupKeyCode = keyCode.has_value() ? keyCode.value().keyCode : 0;
+
+        // GPIO is not an explicit trigger in the current DeepSleep AIDL contract.
+        isGPIOWakeup = (_lastWakeupReason == WakeupReason::WAKEUP_REASON_GPIO);
+
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+    uint32_t DeepSleepWakeup(void) override
+    {
+        // AIDL enterDeepSleep call is blocking and returns on wakeup.
+        // There is no explicit wakeup API, so this is a no-op.
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+    uint32_t GetLastWakeupReason(WakeupReason& wakeupReason) const override
+    {
+        wakeupReason = _lastWakeupReason;
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+    uint32_t GetLastWakeupKeyCode(int& wakeupKeyCode) const override
+    {
+        wakeupKeyCode = _lastWakeupKeyCode;
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+private:
+    static WakeupReason ConvertTrigger(com::rdk::hal::deepsleep::WakeUpTrigger trigger)
+    {
+        using Trigger = com::rdk::hal::deepsleep::WakeUpTrigger;
+
+        switch (trigger) {
+        case Trigger::RCU_IR:
             return WakeupReason::WAKEUP_REASON_IR;
-        case DEEPSLEEP_WAKEUPREASON_RCU_BT:
+        case Trigger::RCU_BT:
             return WakeupReason::WAKEUP_REASON_BLUETOOTH;
-        case DEEPSLEEP_WAKEUPREASON_RCU_RF4CE:
+        case Trigger::RCU_RF4CE:
             return WakeupReason::WAKEUP_REASON_RF4CE;
-        case DEEPSLEEP_WAKEUPREASON_GPIO:
-            return WakeupReason::WAKEUP_REASON_GPIO;
-        case DEEPSLEEP_WAKEUPREASON_LAN:
+        case Trigger::LAN:
             return WakeupReason::WAKEUP_REASON_LAN;
-        case DEEPSLEEP_WAKEUPREASON_WLAN:
+        case Trigger::WLAN:
             return WakeupReason::WAKEUP_REASON_WIFI;
-        case DEEPSLEEP_WAKEUPREASON_TIMER:
+        case Trigger::TIMER:
             return WakeupReason::WAKEUP_REASON_TIMER;
-        case DEEPSLEEP_WAKEUPREASON_FRONT_PANEL:
+        case Trigger::FRONT_PANEL:
             return WakeupReason::WAKEUP_REASON_FRONTPANEL;
-        case DEEPSLEEP_WAKEUPREASON_WATCHDOG:
-            return WakeupReason::WAKEUP_REASON_WATCHDOG;
-        case DEEPSLEEP_WAKEUPREASON_SOFTWARE_RESET:
-            return WakeupReason::WAKEUP_REASON_SOFTWARERESET;
-        case DEEPSLEEP_WAKEUPREASON_THERMAL_RESET:
-            return WakeupReason::WAKEUP_REASON_THERMALRESET;
-        case DEEPSLEEP_WAKEUPREASON_WARM_RESET:
-            return WakeupReason::WAKEUP_REASON_WARMRESET;
-        case DEEPSLEEP_WAKEUPREASON_COLDBOOT:
-            return WakeupReason::WAKEUP_REASON_COLDBOOT;
-        case DEEPSLEEP_WAKEUPREASON_STR_AUTH_FAILURE:
-            return WakeupReason::WAKEUP_REASON_STRAUTHFAIL;
-        case DEEPSLEEP_WAKEUPREASON_CEC:
+        case Trigger::CEC:
             return WakeupReason::WAKEUP_REASON_CEC;
-        case DEEPSLEEP_WAKEUPREASON_PRESENCE:
+        case Trigger::PRESENCE:
             return WakeupReason::WAKEUP_REASON_PRESENCE;
-        case DEEPSLEEP_WAKEUPREASON_VOICE:
+        case Trigger::VOICE:
             return WakeupReason::WAKEUP_REASON_VOICE;
-        case DEEPSLEEP_WAKEUPREASON_UNKNOWN:
+        case Trigger::ERROR_UNKNOWN:
         default:
-            LOGERR("Unknown wakeup reason: %d", reason);
             return WakeupReason::WAKEUP_REASON_UNKNOWN;
         }
     }
 
-    const char* str(DeepSleep_Return_Status_t status) const
+    static WakeupReason ConvertWakeupReason(const std::vector<com::rdk::hal::deepsleep::WakeUpTrigger>& wokeUpByTriggers)
     {
-        switch (status) {
-        case DEEPSLEEPMGR_SUCCESS:
-            return "Success";
-        case DEEPSLEEPMGR_INVALID_ARGUMENT:
-            return "Invalid argument";
-        case DEEPSLEEPMGR_ALREADY_INITIALIZED:
-            return "Already initialized";
-        case DEEPSLEEPMGR_NOT_INITIALIZED:
-            return "Not initialized";
-        case DEEPSLEEPMGR_INIT_FAILURE:
-            return "Init failure";
-        case DEEPSLEEPMGR_SET_FAILURE:
-            return "Set failure";
-        case DEEPSLEEPMGR_WAKEUP_FAILURE:
-            return "Wakeup failure";
-        case DEEPSLEEPMGR_TERM_FAILURE:
-            return "Term failure";
-        default:
-            return "Unknown status";
+        if (wokeUpByTriggers.empty()) {
+            return WakeupReason::WAKEUP_REASON_UNKNOWN;
         }
+
+        return ConvertTrigger(wokeUpByTriggers.front());
     }
 
-    uint32_t conv(DeepSleep_Return_Status_t status) const
-    {
-        switch (status) {
-        case DEEPSLEEPMGR_SUCCESS:
-            return WPEFramework::Core::ERROR_NONE;
-        case DEEPSLEEPMGR_INVALID_ARGUMENT:
-            return WPEFramework::Core::ERROR_INVALID_PARAMETER;
-        case DEEPSLEEPMGR_ALREADY_INITIALIZED:
-        case DEEPSLEEPMGR_NOT_INITIALIZED:
-        case DEEPSLEEPMGR_INIT_FAILURE:
-        case DEEPSLEEPMGR_WAKEUP_FAILURE:
-        case DEEPSLEEPMGR_TERM_FAILURE:
-            return WPEFramework::Core::ERROR_GENERAL;
-        case DEEPSLEEPMGR_SET_FAILURE:
-            return WPEFramework::Core::ERROR_ABORTED;
-        default:
-            LOGERR("Unknown status: %d", status);
-            return WPEFramework::Core::ERROR_GENERAL;
-        }
-    }
+private:
+    bool _available;
+    WakeupReason _lastWakeupReason;
+    int _lastWakeupKeyCode;
 
-    virtual uint32_t SetDeepSleep(uint32_t deepSleepTime, bool& isGPIOWakeup, bool networkStandby) override
-    {
-        int32_t ret = -1;
-        LOGINFO("Update the Deepsleep marker ");
-        ret = v_secure_system("sh /lib/rdk/alertSystem.sh deepSleepMgrMain SYST_INFO_devicetoDS");
-        if(ret != 0) {
-            LOGERR("Failed to update the Deepsleep marker");
-        }
-        
-        DeepSleep_Return_Status_t status = PLAT_DS_SetDeepSleep(deepSleepTime, &isGPIOWakeup, networkStandby);
-
-        uint32_t retCode = conv(status);
-
-        if (WPEFramework::Core::ERROR_NONE == retCode) {
-            LOGINFO("Device wake-up from Deepsleep Mode! GPIOWakeup: %d, networkStandby: %d",
-                isGPIOWakeup, networkStandby);
-        } else {
-            LOGERR("Failed to enter deep sleep mode: %s", str(status));
-        }
-
-        return retCode;
-    }
-
-    virtual uint32_t DeepSleepWakeup(void) override
-    {
-        DeepSleep_Return_Status_t status = PLAT_DS_DeepSleepWakeup();
-
-        uint32_t retCode = conv(status);
-
-        if (WPEFramework::Core::ERROR_NONE == retCode) {
-            LOGINFO("Device resumed from Deep sleep Mode, status :%s", str(status));
-        } else {
-            LOGERR("Failed to resume from deep sleep mode: %s", str(status));
-        }
-
-        return retCode;
-    }
-
-    virtual uint32_t GetLastWakeupReason(WakeupReason& wakeupReason) const override
-    {
-        DeepSleep_WakeupReason_t reason = DEEPSLEEP_WAKEUPREASON_UNKNOWN;
-        DeepSleep_Return_Status_t status = PLAT_DS_GetLastWakeupReason(&reason);
-
-        uint32_t retCode = conv(status);
-
-        if (WPEFramework::Core::ERROR_NONE == retCode) {
-            wakeupReason = conv(reason);
-        }
-
-        LOGINFO("wakeupReason: %s, status:%s", Utils::str(wakeupReason), str(status));
-
-        return retCode;
-    }
-
-    virtual uint32_t GetLastWakeupKeyCode(int& wakeupKeyCode) const override
-    {
-        DeepSleepMgr_WakeupKeyCode_Param_t param = { 0 };
-        DeepSleep_Return_Status_t status = PLAT_DS_GetLastWakeupKeyCode(&param);
-
-        uint32_t retCode = conv(status);
-
-        if (WPEFramework::Core::ERROR_NONE == retCode) {
-            wakeupKeyCode = param.keyCode;
-        }
-
-        LOGINFO("wakeupKeyCode: %d, status:%s", wakeupKeyCode, str(status));
-
-        return retCode;
-    }
+    android::sp<com::rdk::hal::deepsleep::IDeepSleep> _deepsleep;
 };
-
