@@ -23,6 +23,10 @@
 #include <optional>
 #include <vector>
 
+#ifdef LOG_PRI
+#undef LOG_PRI
+#endif
+
 #include <core/Portability.h>
 #include <interfaces/IPowerManager.h>
 
@@ -81,8 +85,9 @@ public:
             return WPEFramework::Core::ERROR_UNAVAILABLE;
         }
 
-        android::binder::Status st = _deepsleep->setWakeUpTimer(static_cast<int32_t>(deepSleepTime));
-        if (!st.isOk()) {
+        bool result = false;
+        android::binder::Status st = _deepsleep->setWakeUpTimer(static_cast<int32_t>(deepSleepTime), &result);
+        if (!st.isOk() || !result) {
             LOGERR("IDeepSleep::setWakeUpTimer failed");
             return WPEFramework::Core::ERROR_GENERAL;
         }
