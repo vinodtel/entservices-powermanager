@@ -24,9 +24,15 @@
 #include <string>
 #include <unordered_map>
 
+#include <linux/android/binder.h>
+#include <binder/IServiceManager.h>
+#include <com/rdk/hal/deepsleep/IDeepSleep.h>
+#include <com/rdk/hal/deepsleep/IBoot.h>
+
 #include "Module.h"
 #include <core/Portability.h>
 
+#include "ServiceManagerCheck.h"
 #include "DeepSleep.h"
 #include "Power.h"
 #include "UtilsLogging.h"
@@ -36,6 +42,10 @@
 
 #include "DeepSleepAidlImpl.h"
 #include "PowerAidlImpl.h"
+
+using namespace com::rdk::hal::boot;
+using namespace com::rdk::hal::deepsleep;
+static const android::String16 mServiceManagerName("manager");
 
 namespace {
 class HalFactoryUtility {

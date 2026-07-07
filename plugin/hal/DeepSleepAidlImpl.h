@@ -41,11 +41,11 @@
 #include <com/rdk/hal/deepsleep/KeyCode.h>
 #include <com/rdk/hal/deepsleep/WakeUpTrigger.h>
 
-class DeepSleepImpl : public hal::deepsleep::IPlatform {
+class DeepSleepAidlImpl : public hal::deepsleep::IPlatform {
     using WakeupReason = WPEFramework::Exchange::IPowerManager::WakeupReason;
 
 public:
-    DeepSleepImpl()
+    DeepSleepAidlImpl()
         : _available(false)
         , _lastWakeupReason(WakeupReason::WAKEUP_REASON_UNKNOWN)
         , _lastWakeupKeyCode(0)

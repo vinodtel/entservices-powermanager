@@ -27,12 +27,12 @@
 #include "Power.h"
 #include "UtilsLogging.h"
 
-class PowerImpl : public hal::power::IPlatform {
+class PowerAidlImpl : public hal::power::IPlatform {
     using PowerState = WPEFramework::Exchange::IPowerManager::PowerState;
     using WakeupSrcType = WPEFramework::Exchange::IPowerManager::WakeupSrcType;
 
 public:
-    PowerImpl()
+    PowerAidlImpl()
         : _available(false)
         , _powerState(PowerState::POWER_STATE_ON)
     {
