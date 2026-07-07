@@ -24,6 +24,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #include <core/Portability.h>
 
@@ -46,28 +47,35 @@ class HalFactoryUtility {
             AIDL
         };
 
-        static BackendType mBackendType;
+        static std::unordered_map<std::string, BackendType> mBackendType;
 
         static bool isAidlServiceAvailable(const android::String16 &expectedServiceName)
         {
             CCEC_LOG(LOG_INFO, "isAidlServiceAvailable invoked\r\n");
 
-            if (mBackendType == BackendType::AIDL) {
-                return true;
-            } else if (mBackendType == BackendType::LEGACY) {
-                return false;
+            const std::string expectedServiceNameString = android::String8(expectedServiceName).string();
+            auto backendTypeIt = mBackendType.find(expectedServiceNameString);
+
+            if (backendTypeIt != mBackendType.end()) {
+                if (backendTypeIt->second == BackendType::AIDL) {
+                    return true;
+                } else if (backendTypeIt->second == BackendType::LEGACY) {
+                    return false;
+                }
+            } else {
+                backendTypeIt = mBackendType.emplace(expectedServiceNameString, BackendType::UNKNOWN).first;
             }
 
             if (!isServiceManagerAvailable()) {
                 CCEC_LOG(LOG_INFO, "Binder driver not available; falling back to legacy HAL\r\n");
-                mBackendType = BackendType::LEGACY;
+                backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
 
             android::sp<android::IServiceManager> serviceManager = android::defaultServiceManager();
             if (serviceManager == nullptr) {
                 CCEC_LOG(LOG_ERROR, "isAidlServiceAvailable failed: IServiceManager unavailable\r\n");
-                mBackendType = BackendType::LEGACY;
+                backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
 
@@ -88,7 +96,7 @@ class HalFactoryUtility {
                 CCEC_LOG(LOG_INFO,
                     "isAidlServiceAvailable found no binder services beyond the ServiceManager entry while searching for '%s'\r\n",
                     android::String8(expectedServiceName).string());
-                mBackendType = BackendType::LEGACY;
+                backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
 
@@ -116,19 +124,18 @@ class HalFactoryUtility {
                 CCEC_LOG(LOG_INFO,
                     "isAidlServiceAvailable found AIDL service '%s'\r\n",
                     android::String8(expectedServiceName).string());
-                mBackendType = BackendType::AIDL;
+                backendTypeIt->second = BackendType::AIDL;
                 return true;
             }
 
             CCEC_LOG(LOG_INFO,
                 "isAidlServiceAvailable did not find AIDL service '%s'\r\n",
                 android::String8(expectedServiceName).string());
-            mBackendType = BackendType::LEGACY;
+            backendTypeIt->second = BackendType::LEGACY;
             return false;
         }
     };
-    HalFactoryUtility::BackendType HalFactoryUtility::mBackendType
-                                    = HalFactoryUtility::BackendType::UNKNOWN;
+    std::unordered_map<std::string, HalFactoryUtility::BackendType> HalFactoryUtility::mBackendType;
 }
 
 class PowerManagerFactory {
