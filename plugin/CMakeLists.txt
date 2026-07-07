@@ -76,6 +76,8 @@ add_library(${PLUGIN_IMPLEMENTATION} SHARED
     RebootController.cpp
     Settings.cpp
     ThermalController.cpp
+    hal/PowerManagerFactory.cpp
+    hal/ServiceManagerCheck.cpp
 )
 
 include_directories(
