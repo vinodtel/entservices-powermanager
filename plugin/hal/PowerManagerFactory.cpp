@@ -1,0 +1,155 @@
+/*
+ * If not stated otherwise in this file or this component's LICENSE file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2026 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#pragma once
+
+#include <algorithm>
+#include <cctype>
+#include <cstdlib>
+#include <memory>
+#include <string>
+
+#include <core/Portability.h>
+
+#include "DeepSleep.h"
+#include "Power.h"
+#include "UtilsLogging.h"
+
+#include "DeepSleepImpl.h"
+#include "PowerImpl.h"
+
+#include "DeepSleepAidlImpl.h"
+#include "PowerAidlImpl.h"
+
+namespace {
+class HalFactoryUtility {
+    public:
+        enum class BackendType {
+            UNKNOWN,
+            LEGACY,
+            AIDL
+        };
+
+        static BackendType mBackendType;
+
+        static bool isAidlServiceAvailable(const android::String16 &expectedServiceName)
+        {
+            CCEC_LOG(LOG_INFO, "isAidlServiceAvailable invoked\r\n");
+
+            if (mBackendType == BackendType::AIDL) {
+                return true;
+            } else if (mBackendType == BackendType::LEGACY) {
+                return false;
+            }
+
+            if (!isServiceManagerAvailable()) {
+                CCEC_LOG(LOG_INFO, "Binder driver not available; falling back to legacy HAL\r\n");
+                mBackendType = BackendType::LEGACY;
+                return false;
+            }
+
+            android::sp<android::IServiceManager> serviceManager = android::defaultServiceManager();
+            if (serviceManager == nullptr) {
+                CCEC_LOG(LOG_ERROR, "isAidlServiceAvailable failed: IServiceManager unavailable\r\n");
+                mBackendType = BackendType::LEGACY;
+                return false;
+            }
+
+            CCEC_LOG(LOG_INFO, "Successfully obtained IServiceManager\r\n");
+
+            android::Vector<android::String16> services = serviceManager->listServices();
+            size_t discoveredServiceCount = 0;
+            bool matched = false;
+
+            for (size_t index = 0; index < services.size(); ++index) {
+                if (services[index] != mServiceManagerName) {
+                    ++discoveredServiceCount;
+                }
+            }
+
+            CCEC_LOG(LOG_INFO, "isAidlServiceAvailable discovered %zu binder services\r\n", discoveredServiceCount);
+            if (discoveredServiceCount == 0) {
+                CCEC_LOG(LOG_INFO,
+                    "isAidlServiceAvailable found no binder services beyond the ServiceManager entry while searching for '%s'\r\n",
+                    android::String8(expectedServiceName).string());
+                mBackendType = BackendType::LEGACY;
+                return false;
+            }
+
+            CCEC_LOG(LOG_INFO,
+                "isAidlServiceAvailable inspecting %zu registered binder services for '%s'\r\n",
+                discoveredServiceCount, android::String8(expectedServiceName).string());
+
+            for (size_t index = 0; index < services.size(); ++index) {
+                if (services[index] == mServiceManagerName) {
+                    continue;
+                }
+
+                const android::String8 discoveredServiceName(services[index]);
+                if (services[index] == expectedServiceName) {
+                    matched = true;
+                }
+
+                CCEC_LOG(LOG_INFO,
+                    "isAidlServiceAvailable discovered binder service[%zu]='%s'\r\n",
+                    index,
+                    discoveredServiceName.string());
+            }
+
+            if (matched) {
+                CCEC_LOG(LOG_INFO,
+                    "isAidlServiceAvailable found AIDL service '%s'\r\n",
+                    android::String8(expectedServiceName).string());
+                mBackendType = BackendType::AIDL;
+                return true;
+            }
+
+            CCEC_LOG(LOG_INFO,
+                "isAidlServiceAvailable did not find AIDL service '%s'\r\n",
+                android::String8(expectedServiceName).string());
+            mBackendType = BackendType::LEGACY;
+            return false;
+        }
+    };
+    HalFactoryUtility::BackendType HalFactoryUtility::mBackendType
+                                    = HalFactoryUtility::BackendType::UNKNOWN;
+}
+
+class PowerManagerFactory {
+public:
+    static std::shared_ptr<hal::deepsleep::IPlatform> CreateDeepSleepPlatform()
+    {
+        if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IDeepSleep::serviceName().c_str()))) {
+            return std::make_shared<DeepSleepAidlImpl>();
+        }
+
+        LOGINFO("Using RDKV backend for DeepSleep HAL");
+        return std::make_shared<DeepSleepImpl>();
+    }
+
+    static std::unique_ptr<hal::power::IPlatform> CreatePowerPlatform()
+    {
+        if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IBoot::serviceName().c_str()))) {
+            return std::unique_ptr<PowerAidlImpl>(new PowerAidlImpl());
+        }
+        LOGINFO("Using RDKV backend for Power HAL");
+        return std::unique_ptr<hal::power::IPlatform>(new PowerImpl());
+    }
+
+};

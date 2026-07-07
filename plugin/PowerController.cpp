@@ -30,14 +30,21 @@
 
 #include "PowerController.h"
 #include "PowerUtils.h"
+#include "hal/PowerManagerFactory.h"
 
 using PowerState = WPEFramework::Exchange::IPowerManager::PowerState;
 using WakeupSrcType = WPEFramework::Exchange::IPowerManager::WakeupSrcType;
 using WakeupReason = WPEFramework::Exchange::IPowerManager::WakeupReason;
 using WakeupSourceConfig = WPEFramework::Exchange::IPowerManager::WakeupSourceConfig;
 using IPlatform = hal::power::IPlatform;
-using DefaultImpl = PowerImpl;
 using util = PowerUtils;
+
+PowerController PowerController::Create(DeepSleepController& deepSleep)
+{
+    auto impl = PowerManagerFactory::CreatePowerPlatform();
+    ASSERT(impl != nullptr);
+    return PowerController(deepSleep, std::move(impl));
+}
 
 PowerController::PowerController(DeepSleepController& deepSleep, std::unique_ptr<IPlatform> platform)
     : _platform(std::move(platform))
