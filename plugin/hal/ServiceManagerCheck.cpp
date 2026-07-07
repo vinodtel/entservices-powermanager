@@ -29,6 +29,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <linux/android/binder.h>
+
+#include "Module.h"
 #include "UtilsLogging.h"
 
 #include "ServiceManagerCheck.h"

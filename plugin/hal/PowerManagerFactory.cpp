@@ -24,6 +24,7 @@
 #include <string>
 #include <unordered_map>
 
+#include "Module.h"
 #include <core/Portability.h>
 
 #include "DeepSleep.h"
@@ -72,7 +73,7 @@ class HalFactoryUtility {
 
             android::sp<android::IServiceManager> serviceManager = android::defaultServiceManager();
             if (serviceManager == nullptr) {
-                CCEC_LOG(LOG_ERROR, "isAidlServiceAvailable failed: IServiceManager unavailable\r\n");
+                LOGERR("isAidlServiceAvailable failed: IServiceManager unavailable\r\n");
                 backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
@@ -91,14 +92,14 @@ class HalFactoryUtility {
 
             LOGINFO("isAidlServiceAvailable discovered %zu binder services\r\n", discoveredServiceCount);
             if (discoveredServiceCount == 0) {
-                CCEC_LOG(LOG_INFO,
+                LOGINFO(
                     "isAidlServiceAvailable found no binder services beyond the ServiceManager entry while searching for '%s'\r\n",
                     android::String8(expectedServiceName).string());
                 backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
 
-            CCEC_LOG(LOG_INFO,
+            LOGINFO(
                 "isAidlServiceAvailable inspecting %zu registered binder services for '%s'\r\n",
                 discoveredServiceCount, android::String8(expectedServiceName).string());
 
@@ -112,21 +113,21 @@ class HalFactoryUtility {
                     matched = true;
                 }
 
-                CCEC_LOG(LOG_INFO,
+                LOGINFO(
                     "isAidlServiceAvailable discovered binder service[%zu]='%s'\r\n",
                     index,
                     discoveredServiceName.string());
             }
 
             if (matched) {
-                CCEC_LOG(LOG_INFO,
+                LOGINFO(
                     "isAidlServiceAvailable found AIDL service '%s'\r\n",
                     android::String8(expectedServiceName).string());
                 backendTypeIt->second = BackendType::AIDL;
                 return true;
             }
 
-            CCEC_LOG(LOG_INFO,
+            LOGINFO(
                 "isAidlServiceAvailable did not find AIDL service '%s'\r\n",
                 android::String8(expectedServiceName).string());
             backendTypeIt->second = BackendType::LEGACY;
