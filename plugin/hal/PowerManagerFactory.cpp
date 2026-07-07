@@ -17,8 +17,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -51,7 +49,7 @@ class HalFactoryUtility {
 
         static bool isAidlServiceAvailable(const android::String16 &expectedServiceName)
         {
-            CCEC_LOG(LOG_INFO, "isAidlServiceAvailable invoked\r\n");
+            LOGINFO("isAidlServiceAvailable invoked\r\n");
 
             const std::string expectedServiceNameString = android::String8(expectedServiceName).string();
             auto backendTypeIt = mBackendType.find(expectedServiceNameString);
@@ -67,7 +65,7 @@ class HalFactoryUtility {
             }
 
             if (!isServiceManagerAvailable()) {
-                CCEC_LOG(LOG_INFO, "Binder driver not available; falling back to legacy HAL\r\n");
+                LOGINFO("Binder driver not available; falling back to legacy HAL\r\n");
                 backendTypeIt->second = BackendType::LEGACY;
                 return false;
             }
@@ -79,7 +77,7 @@ class HalFactoryUtility {
                 return false;
             }
 
-            CCEC_LOG(LOG_INFO, "Successfully obtained IServiceManager\r\n");
+            LOGINFO("Successfully obtained IServiceManager\r\n");
 
             android::Vector<android::String16> services = serviceManager->listServices();
             size_t discoveredServiceCount = 0;
@@ -91,7 +89,7 @@ class HalFactoryUtility {
                 }
             }
 
-            CCEC_LOG(LOG_INFO, "isAidlServiceAvailable discovered %zu binder services\r\n", discoveredServiceCount);
+            LOGINFO("isAidlServiceAvailable discovered %zu binder services\r\n", discoveredServiceCount);
             if (discoveredServiceCount == 0) {
                 CCEC_LOG(LOG_INFO,
                     "isAidlServiceAvailable found no binder services beyond the ServiceManager entry while searching for '%s'\r\n",

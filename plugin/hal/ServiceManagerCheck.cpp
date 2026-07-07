@@ -29,9 +29,9 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <linux/android/binder.h>
+#include "UtilsLogging.h"
 
 #include "ServiceManagerCheck.h"
-#include "ccec/Util.hpp"
 
 // --- Internal implementation details ---
 namespace {
@@ -141,7 +141,7 @@ static bool execute_binder_ping(const int binder_fd, const int protocol_version)
     const BinderTransaction tx = (protocol_version == 7) ? prepare_v7_transaction() : prepare_v8_transaction();
     uint32_t bytes_consumed = 0;
 
-    CCEC_LOG(LOG_INFO, "[*] Routing Ping via version %d layout engine...\n", protocol_version);
+    LOGINFO( "[*] Routing Ping via version %d layout engine...\n", protocol_version);
 
     if (protocol_version == 7) {
         binder_write_read_v7 bwr{};
@@ -156,7 +156,7 @@ static bool execute_binder_ping(const int binder_fd, const int protocol_version)
 
         const unsigned long ioctl_cmd = tx.ioctl_command;
         if (ioctl(binder_fd, ioctl_cmd, &bwr) < 0) {
-            CCEC_LOG(LOG_ERROR, "[-] ioctl execution map allocation failed\n");
+            LOGERR("[-] ioctl execution map allocation failed\n");
             return false;
         }
         bytes_consumed = bwr.read_consumed;
@@ -174,14 +174,14 @@ static bool execute_binder_ping(const int binder_fd, const int protocol_version)
 
         const unsigned long ioctl_cmd = tx.ioctl_command;
         if (ioctl(binder_fd, ioctl_cmd, &bwr) < 0) {
-            CCEC_LOG(LOG_ERROR, "[-] ioctl execution map allocation failed: %s\n", std::strerror(errno));
+            LOGERR("[-] ioctl execution map allocation failed: %s\n", std::strerror(errno));
             return false;
         }
         bytes_consumed = bwr.read_consumed;
     }
 
     // --- Unified Protocol Response Token Parsing Loop ---
-    CCEC_LOG(LOG_INFO, "[*] Driver returned %u bytes of response telemetry.\n", bytes_consumed);
+    LOGINFO( "[*] Driver returned %u bytes of response telemetry.\n", bytes_consumed);
     
     const uint32_t* const read_start = tx.read_payload.data();
     const uint32_t* const read_end = read_start + (bytes_consumed / sizeof(uint32_t));
@@ -189,19 +189,19 @@ static bool execute_binder_ping(const int binder_fd, const int protocol_version)
 
     for (const uint32_t* read_ptr = read_start; read_ptr < read_end; ++read_ptr) {
         const uint32_t token = *read_ptr;
-        CCEC_LOG(LOG_INFO, "[*] Intercepted response token: 0x%x\n", token);
+        LOGINFO( "[*] Intercepted response token: 0x%x\n", token);
 
         if (token == BR_REPLY || token == BR_REPLY_V7_ACTUAL || token == BR_REPLY_V7 || token == BR_REPLY_V8) {
-            CCEC_LOG(LOG_INFO, "[+] Explicit reply acknowledgement found!\n");
+            LOGINFO( "[+] Explicit reply acknowledgement found!\n");
             service_manager_alive = true;
             break; 
         } 
         if (token == BR_DEAD_REPLY || token == BR_FAILED_REPLY) {
-            CCEC_LOG(LOG_ERROR, "[-] Driver faulted payload execution target. Status: 0x%x\n", token);
+            LOGERR("[-] Driver faulted payload execution target. Status: 0x%x\n", token);
             break;
         } 
         if (token == BR_TRANSACTION_COMPLETE || token == BR_TRANSACTION_COMPLETE_V7) {
-            CCEC_LOG(LOG_INFO, "[+] Transaction safely handed off to Binder kernel layer.\n");
+            LOGINFO( "[+] Transaction safely handed off to Binder kernel layer.\n");
             continue;
         } 
         if (token == BR_NOOP || token == BR_OK || token == BR_OK_V7) {
@@ -209,7 +209,7 @@ static bool execute_binder_ping(const int binder_fd, const int protocol_version)
         } 
         
         // Safety Fallback for unexpected or structural multi-word response components
-        CCEC_LOG(LOG_WARN, "[!] Structural bound reached or unhandled response code. Breaking parsing thread loop.\n");
+        LOGWARN("[!] Structural bound reached or unhandled response code. Breaking parsing thread loop.\n");
         break;
     }
 
@@ -223,27 +223,27 @@ bool isServiceManagerAvailable() {
 
     const int binder_fd = open("/dev/binder", O_RDWR | O_CLOEXEC);
     if (binder_fd < 0) {
-        CCEC_LOG(LOG_ERROR, "[-] Failed to open /dev/binder\n");
+        LOGERR("[-] Failed to open /dev/binder\n");
         return service_manager_alive;
     }
-    CCEC_LOG(LOG_INFO, "[+] Successfully opened /dev/binder\n");
+    LOGINFO( "[+] Successfully opened /dev/binder\n");
 
     binder_version version{};
     if (ioctl(binder_fd, BINDER_VERSION, &version) < 0) {
-        CCEC_LOG(LOG_ERROR, "[-] Failed to extract device driver protocol revision metadata\n");
+        LOGERR("[-] Failed to extract device driver protocol revision metadata\n");
         close(binder_fd);
         return service_manager_alive;
     }
-    CCEC_LOG(LOG_INFO, "[+] Binder protocol version detected: %d\n", version.protocol_version);
+    LOGINFO( "[+] Binder protocol version detected: %d\n", version.protocol_version);
 
     const size_t binder_map_size = (version.protocol_version == 7) ? BINDER_MMAP_SIZE_V7 : BINDER_MMAP_SIZE_V8;
     void* const mapped_mem = mmap(nullptr, binder_map_size, PROT_READ, MAP_PRIVATE, binder_fd, 0);
     if (mapped_mem == MAP_FAILED) {
-        CCEC_LOG(LOG_ERROR, "[-] Shared address space context instantiation failed\n");
+        LOGERR("[-] Shared address space context instantiation failed\n");
         close(binder_fd);
         return service_manager_alive;
     }
-    CCEC_LOG(LOG_INFO, "[+] Memory mapped successfully\n");
+    LOGINFO( "[+] Memory mapped successfully\n");
 
     const bool ping_result = execute_binder_ping(binder_fd, version.protocol_version);
     service_manager_alive = ping_result;
