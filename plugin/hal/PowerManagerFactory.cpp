@@ -27,7 +27,7 @@
 #include <linux/android/binder.h>
 #include <binder/IServiceManager.h>
 #include <com/rdk/hal/deepsleep/IDeepSleep.h>
-#include <com/rdk/hal/deepsleep/IBoot.h>
+#include <com/rdk/hal/boot/IBoot.h>
 
 #include "Module.h"
 #include <core/Portability.h>
