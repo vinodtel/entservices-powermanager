@@ -32,9 +32,9 @@
 #include "Module.h"
 #include <core/Portability.h>
 
+#include "PowerManagerFactory.h"
 #include "ServiceManagerCheck.h"
-#include "DeepSleep.h"
-#include "Power.h"
+
 #include "UtilsLogging.h"
 
 #include "DeepSleepImpl.h"
@@ -147,25 +147,22 @@ class HalFactoryUtility {
     std::unordered_map<std::string, HalFactoryUtility::BackendType> HalFactoryUtility::mBackendType;
 }
 
-class PowerManagerFactory {
-public:
-    static std::shared_ptr<hal::deepsleep::IPlatform> CreateDeepSleepPlatform()
-    {
-        if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IDeepSleep::serviceName().c_str()))) {
-            return std::make_shared<DeepSleepAidlImpl>();
-        }
-
-        LOGINFO("Using RDKV backend for DeepSleep HAL");
-        return std::make_shared<DeepSleepImpl>();
+std::shared_ptr<hal::deepsleep::IPlatform> PowerManagerFactory::CreateDeepSleepPlatform()
+{
+    if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IDeepSleep::serviceName().c_str()))) {
+        return std::make_shared<DeepSleepAidlImpl>();
     }
 
-    static std::unique_ptr<hal::power::IPlatform> CreatePowerPlatform()
-    {
-        if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IBoot::serviceName().c_str()))) {
-            return std::unique_ptr<PowerAidlImpl>(new PowerAidlImpl());
-        }
-        LOGINFO("Using RDKV backend for Power HAL");
-        return std::unique_ptr<hal::power::IPlatform>(new PowerImpl());
-    }
+    LOGINFO("Using RDKV backend for DeepSleep HAL");
+    return std::make_shared<DeepSleepImpl>();
+}
 
-};
+std::unique_ptr<hal::power::IPlatform> PowerManagerFactory::CreatePowerPlatform()
+{
+    if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IBoot::serviceName().c_str()))) {
+        return std::unique_ptr<PowerAidlImpl>(new PowerAidlImpl());
+    }
+    LOGINFO("Using RDKV backend for Power HAL");
+    return std::unique_ptr<hal::power::IPlatform>(new PowerImpl());
+}
+
