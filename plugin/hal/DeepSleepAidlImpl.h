@@ -156,23 +156,29 @@ public:
         com::rdk::hal::deepsleep::WakeUpTrigger trigger;
 
         switch (wakeSrcType) {
-        case WakeupSrcType::WAKEUPSRC_IR:
-            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_IR;
+        case WakeupSrcType::WAKEUP_SRC_VOICE:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::VOICE;
             break;
-        case WakeupSrcType::WAKEUPSRC_RCU_BT:
+        case WakeupSrcType::WAKEUP_SRC_PRESENCEDETECTED:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::PRESENCE;
+            break;
+        case WakeupSrcType::WAKEUP_SRC_BLUETOOTH:
             trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_BT;
             break;
-        case WakeupSrcType::WAKEUPSRC_RCU_RF4CE:
-            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_RF4CE;
+        case WakeupSrcType::WAKEUP_SRC_WIFI:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::WLAN; //Vinod: Is mapping correct?
             break;
-        case WakeupSrcType::WAKEUPSRC_GPIO:
-            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::GPIO;
+        case WakeupSrcType::WAKEUP_SRC_IR:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_IR;
             break;
-        case WakeupSrcType::WAKEUPSRC_LAN:
+        case WakeupSrcType::WAKEUP_SRC_CEC:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::CEC;
+            break;
+        case WakeupSrcType::WAKEUP_SRC_LAN:
             trigger = com::rdk::hal::deepsleep::WakeUpTrigger::LAN;
             break;
-        case WakeupSrcType::WAKEUPSRC_WLAN:
-            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::WLAN;
+        case WakeupSrcType::WAKEUP_SRC_RF4CE:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_RF4CE;
             break;
         default:
             LOGERR("Unknown wakeup source type: %d", wakeSrcType);
