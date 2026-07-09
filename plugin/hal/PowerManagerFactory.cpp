@@ -159,7 +159,7 @@ std::shared_ptr<hal::deepsleep::IPlatform> PowerManagerFactory::CreateDeepSleepP
 
 std::unique_ptr<hal::power::IPlatform> PowerManagerFactory::CreatePowerPlatform()
 {
-    if (HalFactoryUtility::isAidlServiceAvailable(android::String16(IBoot::serviceName().c_str()))) {
+    if (HalFactoryUtility::isAidlServiceAvailable(android::String16("Boot"))) {
         return std::unique_ptr<PowerAidlImpl>(new PowerAidlImpl());
     }
     LOGINFO("Using RDKV backend for Power HAL");

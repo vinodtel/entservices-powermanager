@@ -200,6 +200,8 @@ uint32_t PowerController::SetWakeupSourceConfig(const std::list<WPEFramework::Ex
             // latch failed status
             failed = true;
         }
+        // Update DeepSleepController with the new wakeup source configuration
+        _deepSleep.SetWakeupSrc(config.wakeupSource, config.enabled);
     }
 
     uint32_t errorCode = failed ? WPEFramework::Core::ERROR_GENERAL : WPEFramework::Core::ERROR_NONE;

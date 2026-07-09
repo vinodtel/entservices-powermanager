@@ -154,6 +154,8 @@ public:
     // perform maintenance reboot
     void MaintenanceReboot();
 
+    uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled);
+
     inline bool IsDeepSleepInProgress() const
     {
         return (DeepSleepState::InProgress == _deepSleepState);

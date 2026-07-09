@@ -393,3 +393,8 @@ void DeepSleepController::performActivate(uint32_t timeOut, bool nwStandbyMode)
         LOGERR("Deep sleep operation is already in progress");
     }
 }
+
+uint32_t DeepSleepController::SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled)
+{
+    return platform().SetWakeupSrc(wakeSrcType, enabled);
+}

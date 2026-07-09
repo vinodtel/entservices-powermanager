@@ -92,12 +92,16 @@ public:
             return WPEFramework::Core::ERROR_GENERAL;
         }
 
-        std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> triggers;
+        std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> triggers(_wakeupTriggers);
         triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::TIMER);
 
         if (networkStandby) {
-            triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::LAN);
-            triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::WLAN);
+            if (std::find(triggers.begin(), triggers.end(), com::rdk::hal::deepsleep::WakeUpTrigger::LAN) == triggers.end()) {
+                triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::LAN);
+            }
+            if (std::find(triggers.begin(), triggers.end(), com::rdk::hal::deepsleep::WakeUpTrigger::WLAN) == triggers.end()) {
+                triggers.push_back(com::rdk::hal::deepsleep::WakeUpTrigger::WLAN);
+            }
         }
 
         std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> wokeUpByTriggers;
@@ -140,6 +144,48 @@ public:
     uint32_t GetLastWakeupKeyCode(int& wakeupKeyCode) const override
     {
         wakeupKeyCode = _lastWakeupKeyCode;
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+    uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled) override
+    {
+        if (!_available || _deepsleep == nullptr) {
+            return WPEFramework::Core::ERROR_UNAVAILABLE;
+        }
+
+        com::rdk::hal::deepsleep::WakeUpTrigger trigger;
+
+        switch (wakeSrcType) {
+        case WakeupSrcType::WAKEUPSRC_IR:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_IR;
+            break;
+        case WakeupSrcType::WAKEUPSRC_RCU_BT:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_BT;
+            break;
+        case WakeupSrcType::WAKEUPSRC_RCU_RF4CE:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::RCU_RF4CE;
+            break;
+        case WakeupSrcType::WAKEUPSRC_GPIO:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::GPIO;
+            break;
+        case WakeupSrcType::WAKEUPSRC_LAN:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::LAN;
+            break;
+        case WakeupSrcType::WAKEUPSRC_WLAN:
+            trigger = com::rdk::hal::deepsleep::WakeUpTrigger::WLAN;
+            break;
+        default:
+            LOGERR("Unknown wakeup source type: %d", wakeSrcType);
+            return WPEFramework::Core::ERROR_INVALID_PARAMETER;
+        }
+
+        if (enabled) {
+            if (std::find(_wakeupTriggers.begin(), _wakeupTriggers.end(), trigger) == _wakeupTriggers.end()) {
+                _wakeupTriggers.push_back(trigger);
+            }
+        } else {
+            _wakeupTriggers.erase(std::remove(_wakeupTriggers.begin(), _wakeupTriggers.end(), trigger), _wakeupTriggers.end());
+        }
         return WPEFramework::Core::ERROR_NONE;
     }
 
@@ -188,6 +234,7 @@ private:
     bool _available;
     WakeupReason _lastWakeupReason;
     int _lastWakeupKeyCode;
+    std::vector<com::rdk::hal::deepsleep::WakeUpTrigger> _wakeupTriggers;
 
     android::sp<com::rdk::hal::deepsleep::IDeepSleep> _deepsleep;
 };

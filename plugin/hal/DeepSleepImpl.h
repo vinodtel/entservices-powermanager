@@ -203,5 +203,10 @@ public:
 
         return retCode;
     }
+
+    virtual uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled) override
+    {
+        return 0;
+    }
 };
 
