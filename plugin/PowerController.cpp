@@ -26,7 +26,6 @@
 
 #include "LambdaJob.h"      // for LambdaJob
 #include "UtilsLogging.h"   // for LOGINFO, LOGERR
-#include "secure_wrapper.h" // for v_secure_system
 
 #include "PowerController.h"
 #include "PowerUtils.h"
@@ -115,6 +114,7 @@ void PowerController::init()
         _wakeupTimestamp = std::chrono::steady_clock::now();
         LOGINFO("Initialized wakeup timestamp: device is in ON state at boot");
     }
+    _deepSleep.SetBootReason(platform().GetBootReason());
 
 }
 
@@ -241,19 +241,7 @@ uint32_t PowerController::GetWakeupSourceConfig(std::list<WPEFramework::Exchange
 
 uint32_t PowerController::Reboot(const string& requestor, const string& reasonCustom, const string& reasonOther)
 {
-    _workerPool.Submit(LambdaJob::Create([requestor, reasonCustom, reasonOther]() {
-        v_secure_system("echo 0 > /opt/.rebootFlag");
-
-        LOGINFO("------------FINAL REBOOT NOTICE----------\n\tRebooting device requestor: %s, reasonCustom: %s, reasonOther: %s",
-            requestor.c_str(), reasonCustom.c_str(), reasonOther.c_str());
-        if (0 == access("/rebootNow.sh", F_OK)) {
-            v_secure_system("/rebootNow.sh -s '%s' -r '%s' -o '%s'", requestor.c_str(), reasonCustom.c_str(), reasonOther.c_str());
-        } else {
-            v_secure_system("/lib/rdk/rebootNow.sh -s '%s' -r '%s' -o '%s'", requestor.c_str(), reasonCustom.c_str(), reasonOther.c_str());
-        }
-    }));
-
-    return WPEFramework::Core::ERROR_NONE;
+    return platform().Reboot(requestor, reasonCustom, reasonOther);
 }
 
 uint32_t PowerController::SetDeepSleepTimer(const int timeOut)

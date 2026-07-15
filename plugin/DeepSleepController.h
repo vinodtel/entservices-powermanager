@@ -156,6 +156,8 @@ public:
 
     uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled);
 
+    uint32_t SetBootReason(const std::string& bootReason);
+
     inline bool IsDeepSleepInProgress() const
     {
         return (DeepSleepState::InProgress == _deepSleepState);

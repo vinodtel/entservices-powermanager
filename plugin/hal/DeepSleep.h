@@ -42,6 +42,7 @@ namespace deepsleep {
         virtual uint32_t GetLastWakeupReason(WakeupReason& wakeupReason) const = 0;
         virtual uint32_t GetLastWakeupKeyCode(int& wakeupKeyCode) const = 0;
         virtual uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled) = 0;
+        virtual uint32_t SetBootReason(const std::string& bootReason) = 0;
     };
 }
 }

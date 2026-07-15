@@ -21,11 +21,19 @@
 
 #include <map>
 
+#include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
+#include <utils/StrongPointer.h>
+#include <binder/Status.h>
+
+#include <com/rdk/hal/boot/IBoot.h>
 #include <core/Portability.h>
 #include <interfaces/IPowerManager.h>
 
 #include "Power.h"
 #include "UtilsLogging.h"
+
+using namespace com::rdk::hal::boot;
 
 class PowerAidlImpl : public hal::power::IPlatform {
     using PowerState = WPEFramework::Exchange::IPowerManager::PowerState;
@@ -36,10 +44,28 @@ public:
         : _available(false)
         , _powerState(PowerState::POWER_STATE_ON)
     {
-        // AIDL backend is enabled at build time.
-        // Concrete service acquisition and API mapping is handled in backend-specific
-        // method integrations as those interfaces become available on target devices.
-        _available = true;
+        try {
+            android::ProcessState::self()->startThreadPool();
+            android::sp<android::IBinder> binderSvc = android::defaultServiceManager()->getService(
+                android::String16(IBoot::serviceName().c_str()));
+
+            if (binderSvc == nullptr) {
+                LOGERR("Unable to get AIDL Boot service");
+                return;
+            }
+
+            _boot = android::interface_cast<IBoot>(binderSvc);
+            _available = (_boot != nullptr);
+
+            if (_available) {
+                LOGINFO("AIDL Boot service acquired");
+            } else {
+                LOGERR("Unable to cast Boot service binder");
+            }
+        } catch (...) {
+            LOGERR("Exception caught while initializing AIDL Boot service");
+            _available = false;
+        }
     }
 
     bool IsAvailable() const
@@ -74,8 +100,69 @@ public:
         return WPEFramework::Core::ERROR_NONE;
     }
 
+    virtual uint32_t GetBootReason(std::string& bootReasonStr) const  override
+    {
+        android::binder::Status status;
+        BootReason bootReason;
+        status = _boot->getBootReason(&bootReason);
+        if (status.isOk()) {
+            bootReasonStr = com::rdk::hal::boot::toString(bootReason);
+            return WPEFramework::Core::ERROR_NONE;
+        }
+        return WPEFramework::Core::ERROR_GENERAL;
+    }
+
+    virtual uint32_t Reboot(const std::string& requestor, const std::string& reasonCustom, const std::string& reasonOther) override
+    {
+        android::binder::Status status;
+        status = _boot->reboot(stringToResetType(resetType), stringToBootReason(reasonCustom));
+        if (status.isOk()) {
+            return WPEFramework::Core::ERROR_NONE;
+        }
+        return WPEFramework::Core::ERROR_GENERAL;
+    }
+
 private:
     bool _available;
     PowerState _powerState;
+    android::sp<IBoot> _boot;
     std::map<WakeupSrcType, bool> _wakeupSources;
+
+private:
+    inline ResetType stringToResetType(const std::string& resetTypeStr) const
+    {
+        if (resetTypeStr == "FULL_SYSTEM_RESET") {
+            return ResetType::FULL_SYSTEM_RESET;
+        } else if (resetTypeStr == "INVALIDATE_CURRENT_APPLICATION_IMAGE") {
+            return ResetType::INVALIDATE_CURRENT_APPLICATION_IMAGE;
+        } else if (resetTypeStr == "FORCE_DISASTER_RECOVERY") {
+            return ResetType::FORCE_DISASTER_RECOVERY;
+        } else if (resetTypeStr == "MAINTENANCE_REBOOT") {
+            return ResetType::MAINTENANCE_REBOOT;
+        } else if (resetTypeStr == "SOFTWARE_REBOOT") {
+            return ResetType::SOFTWARE_REBOOT;
+        } else {
+            return static_cast<ResetType>(std::stoi(resetTypeStr));
+        }
+    }
+
+    inline BootReason stringToBootReason(const std::string& rebootReasonStr) {
+        if (rebootReasonStr == "ERROR_UNKNOWN") {
+            return BootReason::ERROR_UNKNOWN;
+        } else if (rebootReasonStr == "WATCHDOG") {
+            return BootReason::WATCHDOG;
+        } else if (rebootReasonStr == "MAINTENANCE_REBOOT") {
+            return BootReason::MAINTENANCE_REBOOT;
+        } else if (rebootReasonStr == "THERMAL_RESET") {
+            return BootReason::THERMAL_RESET;
+        } else if (rebootReasonStr == "WARM_RESET") {
+            return BootReason::WARM_RESET;
+        } else if (rebootReasonStr == "COLD_BOOT") {
+            return BootReason::COLD_BOOT;
+        } else if (rebootReasonStr == "STR_AUTH_FAILURE") {
+            return BootReason::STR_AUTH_FAILURE;
+        } else {
+            return static_cast<BootReason>(std::stoi(rebootReasonStr));
+        }
+    }
 };

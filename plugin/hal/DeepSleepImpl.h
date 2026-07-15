@@ -206,7 +206,12 @@ public:
 
     virtual uint32_t SetWakeupSrc(WakeupSrcType wakeSrcType, bool enabled) override
     {
-        return 0;
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
+    virtual uint32_t SetBootReason(const std::string& bootReason) override
+    {
+        return WPEFramework::Core::ERROR_NONE;
     }
 };
 

@@ -195,6 +195,12 @@ public:
         return WPEFramework::Core::ERROR_NONE;
     }
 
+    virtual uint32_t SetBootReason(const std::string& bootReason) override
+    {
+        // _lastWakeupReason = 
+        return WPEFramework::Core::ERROR_NONE;
+    }
+
 private:
     static WakeupReason ConvertTrigger(com::rdk::hal::deepsleep::WakeUpTrigger trigger)
     {
