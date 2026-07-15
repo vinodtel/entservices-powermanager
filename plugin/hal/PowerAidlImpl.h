@@ -115,7 +115,8 @@ public:
     virtual uint32_t Reboot(const std::string& requestor, const std::string& reasonCustom, const std::string& reasonOther) override
     {
         android::binder::Status status;
-        status = _boot->reboot(stringToResetType(resetType), stringToBootReason(reasonCustom));
+        //VINOD: Fix it
+        status = _boot->reboot(stringToResetType(reasonCustom), stringToBootReason(reasonCustom));
         if (status.isOk()) {
             return WPEFramework::Core::ERROR_NONE;
         }

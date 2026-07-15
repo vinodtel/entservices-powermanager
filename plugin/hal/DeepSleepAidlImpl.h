@@ -197,7 +197,8 @@ public:
 
     virtual uint32_t SetBootReason(const std::string& bootReason) override
     {
-        // _lastWakeupReason = 
+        _lastWakeupReason = BootReasonStrToWakeupReason(bootReason);
+        LOGINFO("Boot reason set to: %s", bootReason.c_str());
         return WPEFramework::Core::ERROR_NONE;
     }
 
@@ -240,6 +241,27 @@ private:
         }
 
         return ConvertTrigger(wokeUpByTriggers.front());
+    }
+
+    static WakeupReason BootReasonStrToWakeupReason(const std::string& bootReasonStr)
+    {
+        if (bootReasonStr == "ERROR_UNKNOWN") {
+            return WakeupReason::WAKEUP_REASON_UNKNOWN;
+        } else if (bootReasonStr == "WATCHDOG") {
+            return WakeupReason::WAKEUP_REASON_WATCHDOG;
+        } else if (bootReasonStr == "MAINTENANCE_REBOOT") {
+            return WakeupReason::WAKEUP_REASON_SOFTWARERESET;
+        } else if (bootReasonStr == "THERMAL_RESET") {
+            return WakeupReason::WAKEUP_REASON_THERMALRESET;
+        } else if (bootReasonStr == "WARM_RESET") {
+            return WakeupReason::WAKEUP_REASON_WARMRESET;
+        } else if (bootReasonStr == "COLD_BOOT") {
+            return WakeupReason::WAKEUP_REASON_COLDBOOT;
+        } else if (bootReasonStr == "STR_AUTH_FAILURE") {
+            return WakeupReason::WAKEUP_REASON_STRAUTHFAIL;
+        } else {
+            return WakeupReason::WAKEUP_REASON_UNKNOWN;
+        }
     }
 
 private:

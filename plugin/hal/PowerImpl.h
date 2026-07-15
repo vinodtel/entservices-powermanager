@@ -26,6 +26,7 @@
 #include <core/Portability.h>
 #include <interfaces/IPowerManager.h>
 #include <core/WorkerPool.h> // for IWorkerPool, WorkerPool
+#include "LambdaJob.h"       // for LambdaJob
 
 #include "Power.h"
 #include "UtilsLogging.h"

@@ -24,7 +24,6 @@
 #include <core/Time.h>       // for Time
 #include <core/WorkerPool.h> // for IWorkerPool, WorkerPool
 
-#include "LambdaJob.h"      // for LambdaJob
 #include "UtilsLogging.h"   // for LOGINFO, LOGERR
 
 #include "PowerController.h"
@@ -114,8 +113,10 @@ void PowerController::init()
         _wakeupTimestamp = std::chrono::steady_clock::now();
         LOGINFO("Initialized wakeup timestamp: device is in ON state at boot");
     }
-    _deepSleep.SetBootReason(platform().GetBootReason());
-
+    std::string bootReason;
+    if (WPEFramework::Core::ERROR_NONE == platform().GetBootReason(bootReason)) {
+        _deepSleep.SetBootReason(bootReason);
+    }
 }
 
 uint32_t PowerController::SetPowerState(const int keyCode, const PowerState powerState, const std::string& reason)
