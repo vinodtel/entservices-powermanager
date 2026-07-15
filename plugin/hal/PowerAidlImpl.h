@@ -116,7 +116,8 @@ public:
     {
         android::binder::Status status;
         //VINOD: Fix it
-        status = _boot->reboot(stringToResetType(reasonCustom), stringToBootReason(reasonCustom));
+        status = _boot->reboot(stringToResetType(reasonCustom), android::String16(reasonCustom.c_str()));
+
         if (status.isOk()) {
             return WPEFramework::Core::ERROR_NONE;
         }
