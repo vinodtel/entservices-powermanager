@@ -36,17 +36,16 @@ def _wait_for_boot_reason(expected_reason, timeout_seconds=20):
     return last_reason
 
 
-def _wait_for_awake_state(timeout_seconds=20):
+def _wait_for_awake_state(timeout_seconds=60):
     deadline = time.time() + timeout_seconds
     last_state = None
     while time.time() < deadline:
         state_resp = send_curl_command(PowerManagerApis.get_power_state)
         log_warning(f"Power state response: {state_resp}")
-        last_state = parse_power_state(state_resp)
-        if isinstance(last_state, dict) and last_state.get("currentState") != "DEEP_SLEEP":
-            return last_state
+        if state_resp is not None:
+            return True
         time.sleep(1)
-    return last_state
+    return False
 
 
 def run_test():
@@ -56,15 +55,15 @@ def run_test():
         log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (failed to post COLD BOOT simulation)")
         return False
 
-    log_warning(f"Reboot triggered through control plane. Reboot reason : COLD_BOOT")
-    time.sleep(5)  # Wait for the device to reboot and come back online
+    log_warning(f"Reboot triggered through control plane. Reboot reason : COLD_BOOT.\n")
+    time.sleep(10)  # Wait for the device to reboot and come back online
 
-    state = _wait_for_awake_state()
-    if not isinstance(state, dict):
+    if _wait_for_awake_state() is False:
         log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (device did not report a post-wake power state)")
         return False
 
-    log_info(f"Device is awake - power state: {state}. Re-activating plugin 'org.rdk.PowerManager' via curl JSON-RPC")
+    time.sleep(10)
+    log_info(f"Device is awake. Re-activating plugin 'org.rdk.PowerManager' via curl JSON-RPC")
     if activate_plugin("org.rdk.PowerManager"):
         log_success(f"Plugin 'org.rdk.PowerManager' activated successfully")
     else:

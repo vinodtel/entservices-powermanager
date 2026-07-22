@@ -27,6 +27,7 @@
 """
 
 import os
+import time
 import json
 import subprocess
 from pathlib import Path
@@ -147,20 +148,25 @@ def send_jsonrpc_command(method, params=None, request_id=1, timeout=5):
         return None
 
 
-def activate_plugin(callsign):
+def activate_plugin(callsign, timeout_seconds=20):
     '''Activate an RDK plugin via Controller.1.activate.
     Returns True on success, False otherwise.
     '''
-    response = send_jsonrpc_command(
-        "Controller.1.activate",
-        params={"callsign": callsign},
-        request_id=1234567890,
-    )
-    if not response:
-        return False
-    if "error" in response:
-        return False
-    return "result" in response
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        response = send_jsonrpc_command(
+            "Controller.1.activate",
+            params={"callsign": callsign},
+            request_id=1234567890,
+        )
+        print(f"activate_plugin response: {response}")
+        if not response:
+            time.sleep(1)
+            continue
+        if "error" in response:
+            return False
+        return "result" in response
+    return False
 
 
 def send_curl_command(curl_command):
