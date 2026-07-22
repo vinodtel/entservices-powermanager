@@ -185,7 +185,6 @@ def send_curl_command(curl_command):
         )
 
         response = result.stdout or ""
-        print(f"Utils.py curl_command succeeded. response: {response}")
         # Find the line that is a valid JSON for extracting only the json response
         for line in response.splitlines():
             try:
@@ -195,7 +194,6 @@ def send_curl_command(curl_command):
             except json.JSONDecodeError:
                 pass
 
-        print(f"Utils.py output_response : {output_response}.")
         # Add a message when the obtained output response is empty
         if len(output_response) < 5:
             output_response = "< No response from WPEFramework >"

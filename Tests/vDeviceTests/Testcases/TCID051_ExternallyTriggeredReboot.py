@@ -12,7 +12,7 @@
 import os
 import time
 
-from utils import POWERMANAGER_CMD_BASE, send_curl_command, send_vcomponent_command, is_ok, log_success, log_error, log_warning
+from utils import POWERMANAGER_CMD_BASE, send_curl_command, send_vcomponent_command, is_ok, log_success, log_error, log_warning, log_info, activate_plugin
 import PowerManager_Curl as PowerManagerApis
 from PowerManager_CombinationHelpers import parse_last_wakeup_reason, parse_power_state
 
@@ -56,18 +56,28 @@ def run_test():
         log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (failed to post COLD BOOT simulation)")
         return False
 
+    log_warning(f"Reboot triggered through control plane. Reboot reason : COLD_BOOT")
+    time.sleep(5)  # Wait for the device to reboot and come back online
+
     state = _wait_for_awake_state()
     if not isinstance(state, dict):
         log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (device did not report a post-wake power state)")
         return False
 
-    reason = _wait_for_boot_reason("COLD_BOOT")
-    if reason != "LAN":
-        log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (last boot reason was not LAN)")
+    log_info(f"Device is awake - power state: {state}. Re-activating plugin 'org.rdk.PowerManager' via curl JSON-RPC")
+    if activate_plugin("org.rdk.PowerManager"):
+        log_success(f"Plugin 'org.rdk.PowerManager' activated successfully")
+    else:
+        log_error(f"Failed to activate plugin 'org.rdk.PowerManager'")
+        return False
+
+    reason = _wait_for_boot_reason("COLDBOOT")
+    if reason != "COLDBOOT":
+        log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (last boot reason was not COLDBOOT). Returned boot reason: " + str(reason))
         return False
 
     elapsed_time = time.perf_counter() - start_time
-    msg = "TCID051_ExternallyTriggeredReboot Passed âœ…"
+    msg = "TCID051_ExternallyTriggeredReboot Passed ✅"
     if os.environ.get("POWERMANAGER_TIMING_ENABLED"):
         log_success(f"{msg} time consumed: {elapsed_time:.3f}s")
     else:
