@@ -105,6 +105,7 @@ def run_test():
                 f"Returned boot reason: {reason}"
             )
             return False
+        log_success(f"Validated reboot reason {expected_reason} using {yaml_file} ✅")
 
         negative_reason = NEGATIVE_REASON_CHECKS.get(expected_reason)
         if negative_reason is not None:
@@ -118,10 +119,8 @@ def run_test():
                 return False
             log_success(
                 f"Negative check passed: boot reason did not change to incorrect value "
-                f"{negative_reason} for {yaml_file}"
+                f"{negative_reason} for {yaml_file} ✅"
             )
-
-        log_success(f"Validated reboot reason {expected_reason} using {yaml_file}")
 
     elapsed_time = time.perf_counter() - start_time
     msg = "TCID051_ExternallyTriggeredReboot Passed ✅"

@@ -84,17 +84,21 @@ BLUE = "\033[94m"
 CYAN = "\033[96m"
 
 # ---------- OPTIONAL LOG HELPERS ----------
+def _emit_log(message):
+    print(message, flush=True)
+
+
 def log_info(msg):
-    print(f"{CYAN}{msg}{RESET}")
+    _emit_log(f"{CYAN}{msg}{RESET}")
 
 def log_success(msg):
-    print(f"{GREEN}{BOLD}{msg}{RESET}")
+    _emit_log(f"{GREEN}{BOLD}{msg}{RESET}")
 
 def log_warning(msg):
-    print(f"{YELLOW}{msg}{RESET}")
+    _emit_log(f"{YELLOW}{msg}{RESET}")
 
 def log_error(msg):
-    print(f"{RED}{BOLD}{msg}{RESET}")
+    _emit_log(f"{RED}{BOLD}{msg}{RESET}")
 
 
 def log_with_timing(msg, elapsed_time):
@@ -159,7 +163,7 @@ def activate_plugin(callsign, timeout_seconds=40):
             params={"callsign": callsign},
             request_id=1234567890,
         )
-        print(f"activate_plugin response: {response}")
+        _emit_log(f"activate_plugin response: {response}")
         if not response or "error" in response:
             time.sleep(1)
             continue
@@ -202,7 +206,7 @@ def send_curl_command(curl_command):
         if len(output_response) < 5:
             output_response = "< No response from WPEFramework >"
     except Exception as exc:
-        print(f"Inside Utils.py : Exception in send_curl_command function: {exc}")
+        _emit_log(f"Inside Utils.py : Exception in send_curl_command function: {exc}")
     finally:
         return output_response
 
