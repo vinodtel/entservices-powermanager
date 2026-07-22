@@ -1,4 +1,4 @@
 boot:
   command: bootReason
   params:
-    reason: "{WARM_RESET}"
+    reason: "WARM_RESET"

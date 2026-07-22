@@ -1,5 +1,5 @@
 boot:
   command: bootReason
   params:
-    reason: "{MAINTENANCE_REBOOT}"
+    reason: "MAINTENANCE_REBOOT"
 

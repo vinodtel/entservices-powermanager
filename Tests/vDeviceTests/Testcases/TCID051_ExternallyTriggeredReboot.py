@@ -17,6 +17,16 @@ import PowerManager_Curl as PowerManagerApis
 from PowerManager_CombinationHelpers import parse_last_wakeup_reason, parse_power_state
 
 
+REBOOT_REASON_SCENARIOS = [
+    ("Boot_BootReason_COLD_BOOT.yaml", "COLDBOOT"),
+    ("Boot_BootReason_MAINTAINANCE_REBOOT.yaml", "SOFTWARERESET"),
+    ("Boot_BootReason_STR_AUTH_FAILURE.yaml", "STR_AUTH_FAIL"),
+    ("Boot_BootReason_THERMAL_RESET.yaml", "THERMALRESET"),
+    ("Boot_BootReason_WARM_RESET.yaml", "WARMRESET"),
+    ("Boot_BootReason_WATCHDOG.yaml", "WATCHDOG"),
+]
+
+
 def _post_reboot(yaml_file):
     http_code, body = send_vcomponent_command(f"{POWERMANAGER_CMD_BASE}/{yaml_file}", False)
     log_warning(f"vComponent POST {yaml_file}: HTTP {http_code}  {body}")
@@ -51,29 +61,45 @@ def _wait_for_awake_state(timeout_seconds=60):
 def run_test():
     start_time = time.perf_counter()
 
-    if not _post_reboot("Boot_BootReason_COLD_BOOT.yaml"):
-        log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (failed to post COLD BOOT simulation)")
-        return False
+    for yaml_file, expected_reason in REBOOT_REASON_SCENARIOS:
+        if not _post_reboot(yaml_file):
+            log_error(
+                "TCID051_ExternallyTriggeredReboot Failed ❌ "
+                f"(failed to post reboot simulation via {yaml_file})"
+            )
+            return False
 
-    log_warning(f"Reboot triggered through control plane. Reboot reason : COLD_BOOT.\n")
-    time.sleep(10)  # Wait for the device to reboot and come back online
+        log_warning(
+            f"Reboot triggered through control plane using {yaml_file}. "
+            f"Expected boot reason: {expected_reason}.\n"
+        )
+        time.sleep(10)  # Wait for the device to reboot and come back online
 
-    if _wait_for_awake_state() is False:
-        log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (device did not report a post-wake power state)")
-        return False
+        if _wait_for_awake_state() is False:
+            log_error(
+                "TCID051_ExternallyTriggeredReboot Failed ❌ "
+                f"(device did not report a post-wake power state for {yaml_file})"
+            )
+            return False
 
-    time.sleep(10)
-    log_info(f"Device is awake. Re-activating plugin 'org.rdk.PowerManager' via curl JSON-RPC")
-    if activate_plugin("org.rdk.PowerManager"):
-        log_success(f"Plugin 'org.rdk.PowerManager' activated successfully")
-    else:
-        log_error(f"Failed to activate plugin 'org.rdk.PowerManager'")
-        return False
+        log_info("Device is awake. Re-activating plugin 'org.rdk.PowerManager' via curl JSON-RPC")
+        if activate_plugin("org.rdk.PowerManager"):
+            log_success("Plugin 'org.rdk.PowerManager' activated successfully")
+        else:
+            log_error("Failed to activate plugin 'org.rdk.PowerManager'")
+            return False
 
-    reason = _wait_for_boot_reason("COLDBOOT")
-    if reason != "COLDBOOT":
-        log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (last boot reason was not COLDBOOT). Returned boot reason: " + str(reason))
-        return False
+        reason = _wait_for_boot_reason(expected_reason)
+        if reason != expected_reason:
+            log_error(
+                "TCID051_ExternallyTriggeredReboot Failed ❌ "
+                f"(last boot reason was not {expected_reason} for {yaml_file}). "
+                f"Returned boot reason: {reason}"
+            )
+            return False
+
+        log_success(f"Validated reboot reason {expected_reason} using {yaml_file}")
+        time.sleep(5)  # Wait before the next iteration
 
     elapsed_time = time.perf_counter() - start_time
     msg = "TCID051_ExternallyTriggeredReboot Passed ✅"

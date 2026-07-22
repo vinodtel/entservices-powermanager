@@ -148,7 +148,7 @@ def send_jsonrpc_command(method, params=None, request_id=1, timeout=5):
         return None
 
 
-def activate_plugin(callsign, timeout_seconds=20):
+def activate_plugin(callsign, timeout_seconds=40):
     '''Activate an RDK plugin via Controller.1.activate.
     Returns True on success, False otherwise.
     '''
@@ -160,11 +160,9 @@ def activate_plugin(callsign, timeout_seconds=20):
             request_id=1234567890,
         )
         print(f"activate_plugin response: {response}")
-        if not response:
+        if not response or "error" in response:
             time.sleep(1)
             continue
-        if "error" in response:
-            return False
         return "result" in response
     return False
 

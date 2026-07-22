@@ -1,4 +1,4 @@
 boot:
   command: bootReason
   params:
-    reason: "{WATCHDOG}"
+    reason: "WATCHDOG"

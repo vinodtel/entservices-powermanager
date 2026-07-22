@@ -1,4 +1,4 @@
 boot:
   command: bootReason
   params:
-    reason: "{STR_AUTH_FAILURE}"
+    reason: "STR_AUTH_FAILURE"

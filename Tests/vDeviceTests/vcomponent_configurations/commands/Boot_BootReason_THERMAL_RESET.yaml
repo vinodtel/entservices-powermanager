@@ -1,4 +1,4 @@
 boot:
   command: bootReason
   params:
-    reason: "{THERMAL_RESET}"
+    reason: "THERMAL_RESET"
