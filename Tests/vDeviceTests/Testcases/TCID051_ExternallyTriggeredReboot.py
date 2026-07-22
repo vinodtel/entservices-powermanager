@@ -26,6 +26,14 @@ REBOOT_REASON_SCENARIOS = [
     ("Boot_BootReason_WATCHDOG.yaml", "WATCHDOG"),
 ]
 
+NEGATIVE_REASON_CHECKS = {
+    "COLDBOOT": "WARMRESET",
+    "SOFTWARERESET": "WATCHDOG",
+    "STR_AUTH_FAIL": "THERMALRESET",
+    "THERMALRESET": "STR_AUTH_FAIL",
+    "WARMRESET": "COLDBOOT",
+    "WATCHDOG": "SOFTWARERESET",
+}
 
 def _post_reboot(yaml_file):
     http_code, body = send_vcomponent_command(f"{POWERMANAGER_CMD_BASE}/{yaml_file}", False)
@@ -98,8 +106,22 @@ def run_test():
             )
             return False
 
+        negative_reason = NEGATIVE_REASON_CHECKS.get(expected_reason)
+        if negative_reason is not None:
+            wrong_reason = _wait_for_boot_reason(negative_reason, timeout_seconds=5)
+            if wrong_reason == negative_reason:
+                log_error(
+                    "TCID051_ExternallyTriggeredReboot Failed ❌ "
+                    f"(negative check failed for {yaml_file}: incorrect boot reason "
+                    f"{negative_reason} was reported)"
+                )
+                return False
+            log_success(
+                f"Negative check passed: boot reason did not change to incorrect value "
+                f"{negative_reason} for {yaml_file}"
+            )
+
         log_success(f"Validated reboot reason {expected_reason} using {yaml_file}")
-        time.sleep(5)  # Wait before the next iteration
 
     elapsed_time = time.perf_counter() - start_time
     msg = "TCID051_ExternallyTriggeredReboot Passed ✅"
