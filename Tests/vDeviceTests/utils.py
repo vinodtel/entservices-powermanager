@@ -55,18 +55,22 @@ POWERMANAGER_CMD_BASE = os.environ.get("POWERMANAGER_CMD_BASE") or _pick_existin
 TARGET_HOST = os.environ.get("TARGET_HOST", "127.0.0.1")
 JSONRPC_PORT = os.environ.get("JSONRPC_PORT", "9998")
 # DeepSleep vcomponent control plane defaults to 8081. Keep override support via
-# VCOMPONENT_PORT / VCOMPONENT_API_URL for target-specific deployments.
-VCOMPONENT_PORT = os.environ.get("VCOMPONENT_PORT", "8081")
+# DEEPSLEEP_VCOMPONENT_PORT / VCOMPONENT_API_URL for target-specific deployments.
+DEEPSLEEP_VCOMPONENT_PORT = os.environ.get("DEEPSLEEP_VCOMPONENT_PORT", "8081")
+BOOT_VCOMPONENT_PORT = os.environ.get("BOOT_VCOMPONENT_PORT", "8081")
 WPEFRAMEWORK_JSONRPC_URL = (
     os.environ.get("WPEFRAMEWORK_JSONRPC_URL")
     or os.environ.get("JSONRPC_URL")
     or f"http://{TARGET_HOST}:{JSONRPC_PORT}/jsonrpc"
 )
-VCOMPONENT_API_URL = (
-    os.environ.get("VCOMPONENT_API_URL")
-    or f"http://{TARGET_HOST}:{VCOMPONENT_PORT}/api/postKVP"
+DEEPSLEEP_VCOMPONENT_API_URL = (
+    os.environ.get("DEEPSLEEP_VCOMPONENT_API_URL")
+    or f"http://{TARGET_HOST}:{DEEPSLEEP_VCOMPONENT_PORT}/api/postKVP"
 )
-
+BOOT_VCOMPONENT_API_URL = (
+    os.environ.get("BOOT_VCOMPONENT_API_URL")
+    or f"http://{TARGET_HOST}:{BOOT_VCOMPONENT_PORT}/api/postKVP"
+)
 
 # ---------- ANSI COLOR CONSTANTS ----------
 RESET = "\033[0m"
@@ -190,7 +194,7 @@ def send_curl_command(curl_command):
         return output_response
 
 
-def send_vcomponent_command(yaml_file_path):
+def send_vcomponent_command(yaml_file_path, deepsleep=True):
     '''Post a YAML command file to the vComponent HTTP API.
 
     NOTE (scenario hooks - TODO): The PowerManager/deepsleep vComponent runtime
@@ -206,15 +210,22 @@ def send_vcomponent_command(yaml_file_path):
         if not Path(yaml_file_path).is_file():
             return 0, f"YAML file not found: {yaml_file_path}"
 
-        cmd = [
+        deepsleep_cmd = [
             "curl", "-sS", "-w", "\n%{http_code}",
             "-X", "POST",
             "-H", "Content-Type: application/x-yaml",
             "--data-binary", f"@{yaml_file_path}",
-            VCOMPONENT_API_URL,
+            DEEPSLEEP_VCOMPONENT_API_URL,
+        ]
+        boot_cmd = [
+            "curl", "-sS", "-w", "\n%{http_code}",
+            "-X", "POST",
+            "-H", "Content-Type: application/x-yaml",
+            "--data-binary", f"@{yaml_file_path}",
+            BOOT_VCOMPONENT_API_URL,
         ]
         result = subprocess.run(
-            cmd,
+            deepsleep?deepsleep_cmd:boot_cmd,
             check=False,
             text=True,
             stdout=subprocess.PIPE,

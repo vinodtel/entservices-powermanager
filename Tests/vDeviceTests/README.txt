@@ -27,7 +27,7 @@ ENDPOINTS / DEFAULTS
 Useful overrides:
 - TARGET_HOST (applies to both endpoints)
 - JSONRPC_PORT
-- VCOMPONENT_PORT
+- DEEPSLEEP_VCOMPONENT_PORT
 - WPEFRAMEWORK_JSONRPC_URL (full URL, highest priority)
 - VCOMPONENT_API_URL (full URL, highest priority)
 
@@ -45,7 +45,7 @@ SCENARIO HOOKS (TODO)
 ---------------------
 DeepSleep simulation uses the vcomponent control plane via
 utils.send_vcomponent_command(). The default control-plane port is 8081 for the
-DeepSleep service; override with VCOMPONENT_PORT or VCOMPONENT_API_URL if your
+DeepSleep service; override with DEEPSLEEP_VCOMPONENT_PORT or VCOMPONENT_API_URL if your
 target launches the service on a different port.
 
 NOTES

@@ -81,7 +81,7 @@ SUITES = {
             "TCID34_Set_Overtemp_Grace_Interval",
             "TCID35_Delay_Power_Mode_Change_By",
             "TCID36_Reboot",
-            "TCID51_DeepSleepBackendFailureReaction",
+            "TCID051_ExternallyTriggeredReboot",
         ],
     },
 }
