@@ -1,9 +1,9 @@
 """
 /**
- * @file TCID37_MixedTriggerPrecedence.py
+ * @file TCID36_MixedTriggerPrecedence.py
  * @brief L2 PowerManager combination testcase.
  *
- * @testcase TCID37_MixedTriggerPrecedence
+ * @testcase TCID36_MixedTriggerPrecedence
  * @details Validates mixed-trigger precedence across all pairwise
  *          combinations of the non-network external wake families. Each
  *          subflow enables TIMER only as a long fallback wake, enables two
@@ -260,7 +260,7 @@ def run_test():
     log_warning(f"Original config response: {original_resp}")
     original_config = parse_wakeup_config(original_resp)
     if not isinstance(original_config, list):
-        log_error("TCID37_MixedTriggerPrecedence Failed ❌ (unable to read baseline config)")
+        log_error("TCID36_MixedTriggerPrecedence Failed ❌ (unable to read baseline config)")
         return False
 
     failures = []
@@ -275,11 +275,11 @@ def run_test():
         _restore_baseline(original_config, "PM-PLUGIN-037-final-restore")
 
     if failures:
-        log_error(f"TCID37_MixedTriggerPrecedence Failed ❌ ({'; '.join(failures)})")
+        log_error(f"TCID36_MixedTriggerPrecedence Failed ❌ ({'; '.join(failures)})")
         return False
 
     elapsed_time = time.perf_counter() - start_time
-    msg = "TCID37_MixedTriggerPrecedence Passed ✅"
+    msg = "TCID36_MixedTriggerPrecedence Passed ✅"
     if os.environ.get("POWERMANAGER_TIMING_ENABLED"):
         log_success(f"{msg} time consumed: {elapsed_time:.3f}s")
     else:
