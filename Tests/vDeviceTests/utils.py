@@ -27,6 +27,7 @@
 """
 
 import os
+import time
 import json
 import subprocess
 from pathlib import Path
@@ -55,18 +56,22 @@ POWERMANAGER_CMD_BASE = os.environ.get("POWERMANAGER_CMD_BASE") or _pick_existin
 TARGET_HOST = os.environ.get("TARGET_HOST", "127.0.0.1")
 JSONRPC_PORT = os.environ.get("JSONRPC_PORT", "9998")
 # DeepSleep vcomponent control plane defaults to 8081. Keep override support via
-# VCOMPONENT_PORT / VCOMPONENT_API_URL for target-specific deployments.
-VCOMPONENT_PORT = os.environ.get("VCOMPONENT_PORT", "8081")
+# DEEPSLEEP_VCOMPONENT_PORT / VCOMPONENT_API_URL for target-specific deployments.
+DEEPSLEEP_VCOMPONENT_PORT = os.environ.get("DEEPSLEEP_VCOMPONENT_PORT", "8081")
+BOOT_VCOMPONENT_PORT = os.environ.get("BOOT_VCOMPONENT_PORT", "8081")
 WPEFRAMEWORK_JSONRPC_URL = (
     os.environ.get("WPEFRAMEWORK_JSONRPC_URL")
     or os.environ.get("JSONRPC_URL")
     or f"http://{TARGET_HOST}:{JSONRPC_PORT}/jsonrpc"
 )
-VCOMPONENT_API_URL = (
-    os.environ.get("VCOMPONENT_API_URL")
-    or f"http://{TARGET_HOST}:{VCOMPONENT_PORT}/api/postKVP"
+DEEPSLEEP_VCOMPONENT_API_URL = (
+    os.environ.get("DEEPSLEEP_VCOMPONENT_API_URL")
+    or f"http://{TARGET_HOST}:{DEEPSLEEP_VCOMPONENT_PORT}/api/postKVP"
 )
-
+BOOT_VCOMPONENT_API_URL = (
+    os.environ.get("BOOT_VCOMPONENT_API_URL")
+    or f"http://{TARGET_HOST}:{BOOT_VCOMPONENT_PORT}/api/postKVP"
+)
 
 # ---------- ANSI COLOR CONSTANTS ----------
 RESET = "\033[0m"
@@ -79,17 +84,21 @@ BLUE = "\033[94m"
 CYAN = "\033[96m"
 
 # ---------- OPTIONAL LOG HELPERS ----------
+def _emit_log(message):
+    print(message, flush=True)
+
+
 def log_info(msg):
-    print(f"{CYAN}{msg}{RESET}")
+    _emit_log(f"{CYAN}{msg}{RESET}")
 
 def log_success(msg):
-    print(f"{GREEN}{BOLD}{msg}{RESET}")
+    _emit_log(f"{GREEN}{BOLD}{msg}{RESET}")
 
 def log_warning(msg):
-    print(f"{YELLOW}{msg}{RESET}")
+    _emit_log(f"{YELLOW}{msg}{RESET}")
 
 def log_error(msg):
-    print(f"{RED}{BOLD}{msg}{RESET}")
+    _emit_log(f"{RED}{BOLD}{msg}{RESET}")
 
 
 def log_with_timing(msg, elapsed_time):
@@ -143,20 +152,23 @@ def send_jsonrpc_command(method, params=None, request_id=1, timeout=5):
         return None
 
 
-def activate_plugin(callsign):
+def activate_plugin(callsign, timeout_seconds=40):
     '''Activate an RDK plugin via Controller.1.activate.
     Returns True on success, False otherwise.
     '''
-    response = send_jsonrpc_command(
-        "Controller.1.activate",
-        params={"callsign": callsign},
-        request_id=1234567890,
-    )
-    if not response:
-        return False
-    if "error" in response:
-        return False
-    return "result" in response
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        response = send_jsonrpc_command(
+            "Controller.1.activate",
+            params={"callsign": callsign},
+            request_id=1234567890,
+        )
+        _emit_log(f"activate_plugin response: {response}")
+        if not response or "error" in response:
+            time.sleep(1)
+            continue
+        return "result" in response
+    return False
 
 
 def send_curl_command(curl_command):
@@ -164,16 +176,25 @@ def send_curl_command(curl_command):
     output_response = ""
     try:
         # Respect endpoint overrides even when curl strings hardcode localhost.
-        if WPEFRAMEWORK_JSONRPC_URL:
-            curl_command = curl_command.replace(
-                "http://127.0.0.1:9998/jsonrpc", WPEFRAMEWORK_JSONRPC_URL
-            )
+        # if WPEFRAMEWORK_JSONRPC_URL:
+        #     curl_command = curl_command.replace(
+        #         "http://127.0.0.1:9998/jsonrpc", WPEFRAMEWORK_JSONRPC_URL
+        #     )
+
+        # print(f"Utils.py curl_command : {curl_command}")
 
         # Send the curl command using os.popen
-        response = os.popen(curl_command)
+        result = subprocess.run(
+            curl_command,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
+        response = result.stdout or ""
         # Find the line that is a valid JSON for extracting only the json response
-        for line in response.readlines():
+        for line in response.splitlines():
             try:
                 json.loads(line)
                 output_response = line
@@ -185,12 +206,12 @@ def send_curl_command(curl_command):
         if len(output_response) < 5:
             output_response = "< No response from WPEFramework >"
     except Exception as exc:
-        print(f"Inside Utils.py : Exception in send_curl_command function: {exc}")
+        _emit_log(f"Inside Utils.py : Exception in send_curl_command function: {exc}")
     finally:
         return output_response
 
 
-def send_vcomponent_command(yaml_file_path):
+def send_vcomponent_command(yaml_file_path, deepsleep=True):
     '''Post a YAML command file to the vComponent HTTP API.
 
     NOTE (scenario hooks - TODO): The PowerManager/deepsleep vComponent runtime
@@ -206,13 +227,23 @@ def send_vcomponent_command(yaml_file_path):
         if not Path(yaml_file_path).is_file():
             return 0, f"YAML file not found: {yaml_file_path}"
 
-        cmd = [
+        deepsleep_cmd = [
             "curl", "-sS", "-w", "\n%{http_code}",
             "-X", "POST",
             "-H", "Content-Type: application/x-yaml",
             "--data-binary", f"@{yaml_file_path}",
-            VCOMPONENT_API_URL,
+            DEEPSLEEP_VCOMPONENT_API_URL,
         ]
+        boot_cmd = [
+            "curl", "-sS", "-w", "\n%{http_code}",
+            "-X", "POST",
+            "-H", "Content-Type: application/x-yaml",
+            "--data-binary", f"@{yaml_file_path}",
+            BOOT_VCOMPONENT_API_URL,
+        ]
+        cmd = deepsleep_cmd
+        if deepsleep == False:
+            cmd = boot_cmd
         result = subprocess.run(
             cmd,
             check=False,

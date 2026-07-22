@@ -42,14 +42,15 @@ def _curl(method, params=None, timeout=5, request_id=42):
     if params is not None:
         payload["params"] = params
     # Use json.dumps to guarantee valid JSON; single-quote wrap for shell -d.
-    data = json.dumps(payload)
-    return (
-        f"curl --max-time {timeout} "
-        f'--header "Content-Type: application/json" '
-        f"--request POST "
-        f"-d '{data}' "
-        f"{WPEFRAMEWORK_JSONRPC_URL}"
-    )
+
+    return [
+        "curl",
+        "--max-time", str(timeout),
+        "--header", "Content-Type: application/json",
+        "--request", "POST",
+        "--data", json.dumps(payload),
+        WPEFRAMEWORK_JSONRPC_URL,
+    ]
 
 
 def _curl_raw(method, params=None, timeout=5, request_id=42):
@@ -61,15 +62,14 @@ def _curl_raw(method, params=None, timeout=5, request_id=42):
     }
     if params is not None:
         payload["params"] = params
-    data = json.dumps(payload)
-    return (
-        f"curl --max-time {timeout} "
-        f'--header "Content-Type: application/json" '
-        f"--request POST "
-        f"-d '{data}' "
-        f"{WPEFRAMEWORK_JSONRPC_URL}"
-    )
-
+    return [
+        "curl",
+        "--max-time", str(timeout),
+        "--header", "Content-Type: application/json",
+        "--request", "POST",
+        "-d", json.dumps(payload),
+        WPEFRAMEWORK_JSONRPC_URL,
+    ]
 
 # ---------------------------------------------------------------------------
 # Getters (safe, no side effects)

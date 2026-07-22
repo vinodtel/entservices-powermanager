@@ -36,7 +36,7 @@ import time
 from pathlib import Path
 import os
 
-from utils import log_error, log_info, log_success, send_jsonrpc_command, WPEFRAMEWORK_JSONRPC_URL
+from utils import log_error, log_info, log_success, send_jsonrpc_command, WPEFRAMEWORK_JSONRPC_URL, activate_plugin
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -81,7 +81,7 @@ SUITES = {
             "TCID34_Set_Overtemp_Grace_Interval",
             "TCID35_Delay_Power_Mode_Change_By",
             "TCID36_Reboot",
-            "TCID51_DeepSleepBackendFailureReaction",
+            "TCID051_ExternallyTriggeredReboot",
         ],
     },
 }
@@ -198,7 +198,7 @@ def run_suite(suite_name, selected_tests=None):
     callsign = SUITE_PLUGIN_CALLSIGNS.get(suite_name)
     if auto_activate and callsign:
         log_info(f"Auto-activating plugin '{callsign}' via curl JSON-RPC at {WPEFRAMEWORK_JSONRPC_URL}")
-        if activate_plugin_via_curl(callsign):
+        if activate_plugin(callsign):
             log_success(f"Plugin activated: {callsign}")
             log_info("Waiting 6s for plugin to fully initialise...")
             time.sleep(6)
