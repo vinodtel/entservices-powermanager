@@ -52,7 +52,7 @@ def _wait_for_awake_state(timeout_seconds=20):
 def run_test():
     start_time = time.perf_counter()
 
-    if not _post_reboot("Boot_BootReason_COLD_BOOTeup_LAN.yaml"):
+    if not _post_reboot("Boot_BootReason_COLD_BOOT.yaml"):
         log_error("TCID051_ExternallyTriggeredReboot Failed ❌ (failed to post COLD BOOT simulation)")
         return False
 

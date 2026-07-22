@@ -168,16 +168,26 @@ def send_curl_command(curl_command):
     output_response = ""
     try:
         # Respect endpoint overrides even when curl strings hardcode localhost.
-        if WPEFRAMEWORK_JSONRPC_URL:
-            curl_command = curl_command.replace(
-                "http://127.0.0.1:9998/jsonrpc", WPEFRAMEWORK_JSONRPC_URL
-            )
+        # if WPEFRAMEWORK_JSONRPC_URL:
+        #     curl_command = curl_command.replace(
+        #         "http://127.0.0.1:9998/jsonrpc", WPEFRAMEWORK_JSONRPC_URL
+        #     )
+
+        # print(f"Utils.py curl_command : {curl_command}")
 
         # Send the curl command using os.popen
-        response = os.popen(curl_command)
+        result = subprocess.run(
+            curl_command,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
 
+        response = result.stdout or ""
+        print(f"Utils.py curl_command succeeded. response: {response}")
         # Find the line that is a valid JSON for extracting only the json response
-        for line in response.readlines():
+        for line in response.splitlines():
             try:
                 json.loads(line)
                 output_response = line
@@ -185,6 +195,7 @@ def send_curl_command(curl_command):
             except json.JSONDecodeError:
                 pass
 
+        print(f"Utils.py output_response : {output_response}.")
         # Add a message when the obtained output response is empty
         if len(output_response) < 5:
             output_response = "< No response from WPEFramework >"
@@ -224,8 +235,11 @@ def send_vcomponent_command(yaml_file_path, deepsleep=True):
             "--data-binary", f"@{yaml_file_path}",
             BOOT_VCOMPONENT_API_URL,
         ]
+        cmd = deepsleep_cmd
+        if deepsleep == False:
+            cmd = boot_cmd
         result = subprocess.run(
-            deepsleep?deepsleep_cmd:boot_cmd,
+            cmd,
             check=False,
             text=True,
             stdout=subprocess.PIPE,
