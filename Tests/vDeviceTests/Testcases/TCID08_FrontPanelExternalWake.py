@@ -15,7 +15,7 @@ import time
 
 from utils import POWERMANAGER_CMD_BASE, send_curl_command, send_vcomponent_command, is_ok, log_success, log_error, log_warning
 import PowerManager_Curl as PowerManagerApis
-from PowerManager_CombinationHelpers import build_wakeup_override_entries, get_source_enabled, parse_last_wakeup_keycode, parse_last_wakeup_reason, parse_power_state, parse_wakeup_config, wakeup_map
+from PowerManager_CombinationHelpers import build_explicit_wakeup_entries, parse_last_wakeup_keycode, parse_last_wakeup_reason, parse_power_state, parse_wakeup_config, wakeup_map
 
 
 def _post_deepsleep(yaml_file):
@@ -50,6 +50,14 @@ def _wait_for_wakeup_reason(expected_reason, timeout_seconds=20):
     return last_reason
 
 
+def _build_powerkey_only_entries(config_list):
+    return build_explicit_wakeup_entries(config_list, ["POWERKEY"])
+
+
+def _matches_expected_config(config_list, expected_map):
+    return wakeup_map(config_list) == expected_map
+
+
 def run_test():
     start_time = time.perf_counter()
 
@@ -61,16 +69,16 @@ def run_test():
         return False
 
     try:
+        expected_entries = _build_powerkey_only_entries(original_config)
+        expected_config = wakeup_map(expected_entries)
         set_resp = send_curl_command(
             PowerManagerApis.set_wakeup_source_config(
-                build_wakeup_override_entries(original_config, {
-                    "POWERKEY": True,
-                })
+                expected_entries
             )
         )
         log_warning(f"Set response: {set_resp}")
         if not is_ok(set_resp):
-            log_error("TCID08_FrontPanelExternalWake Failed ❌ (failed to enable FRONT_PANEL wake source)")
+            log_error("TCID08_FrontPanelExternalWake Failed ❌ (failed to configure POWERKEY-only wake source state)")
             return False
 
         config_resp = send_curl_command(PowerManagerApis.get_wakeup_source_config)
@@ -79,11 +87,8 @@ def run_test():
         if not isinstance(configured, list):
             log_error("TCID08_FrontPanelExternalWake Failed ❌ (unable to read configured wakeup state)")
             return False
-        if get_source_enabled(configured, "POWERKEY") is not True:
-            log_error("TCID08_FrontPanelExternalWake Failed ❌ (FRONT_PANEL not enabled before deep sleep)")
-            return False
-        if get_source_enabled(configured, "TIMER") is not True:
-            log_error("TCID08_FrontPanelExternalWake Failed ❌ (TIMER must already be enabled before deep sleep)")
+        if not _matches_expected_config(configured, expected_config):
+            log_error("TCID08_FrontPanelExternalWake Failed ❌ (configured wakeup state was not POWERKEY=true with all other sources false)")
             return False
 
         deep_resp = send_curl_command(PowerManagerApis.set_power_state("DEEP_SLEEP", standby_reason="PM-PLUGIN-033", timeout=10))
@@ -120,8 +125,8 @@ def run_test():
         if not isinstance(post_config, list):
             log_error("TCID08_FrontPanelExternalWake Failed ❌ (invalid wakeup config after FRONT_PANEL wake)")
             return False
-        if get_source_enabled(post_config, "POWERKEY") is not True:
-            log_error("TCID08_FrontPanelExternalWake Failed ❌ (FRONT_PANEL not enabled after wake)")
+        if not _matches_expected_config(post_config, expected_config):
+            log_error("TCID08_FrontPanelExternalWake Failed ❌ (post-wake config was not POWERKEY=true with all other sources false)")
             return False
     finally:
         restore_entries = [
